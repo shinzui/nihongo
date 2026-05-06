@@ -62,9 +62,9 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone A: Verify `nix develop` provides `rsvg-convert` and `git` >= 2.30. (2026-05-05; rsvg-convert from librsvg-2.61.4, git 2.53.0)
 - [x] Milestone B: Expand `Nihongo.Prelude` per haskell-jitsurei custom-prelude pattern. (2026-05-05)
 - [x] Milestone B: Add `Nihongo.Pretty` ANSI helpers in `nihongo-cli`. (2026-05-05)
-- [ ] Milestone C: Implement `Nihongo.Cli.Version` with githash + CPP fallback.
-- [ ] Milestone C: Implement `Nihongo.Cli.Stdin` (auto-detect piped input).
-- [ ] Milestone C: Implement `Nihongo.Cli.Width` (terminal-size + paragraph wrap).
+- [x] Milestone C: Implement `Nihongo.Cli.Version` with githash + CPP fallback. (2026-05-05)
+- [x] Milestone C: Implement `Nihongo.Cli.Stdin` (auto-detect piped input). (2026-05-05)
+- [x] Milestone C: Implement `Nihongo.Cli.Width` (terminal-size + paragraph wrap). (2026-05-05)
 - [ ] Milestone D: Implement `Nihongo.Cli.Help` with embedded markdown topics.
 - [ ] Milestone D: Implement `Nihongo.Cli.Completions` with built-in optparse protocol.
 - [ ] Milestone E: Restructure `Nihongo.Cli` to use the parser-shape-safe pattern with `version`, `help`, `completions`, and a placeholder `hello` subcommand wired through stdin auto-detection.
@@ -85,6 +85,14 @@ implementation. Provide concise evidence.
   (command)` plus `import qualified Options.Applicative as OA` and using
   `OA.command "hello"`. The `Nihongo.Cli.Help` module already follows this
   qualification pattern.
+
+- `Nihongo.Cli.Version` triggers `-Woverlapping-patterns` because GHC sees the
+  `tGitInfoCwdTry` typed-TH splice as a statically known `Right` when `.git`
+  is present at compile time, and reports the `Left _` branch as redundant.
+  The dual branch is required for portability across `cabal build` (with `.git`)
+  and `nix build` (which strips `.git`); we silence the warning per-file with
+  `{-# OPTIONS_GHC -Wno-overlapping-patterns #-}` and document the reason in
+  the file header.
 
 
 ## Decision Log
