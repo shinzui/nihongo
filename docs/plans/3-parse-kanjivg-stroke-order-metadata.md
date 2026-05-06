@@ -49,8 +49,8 @@ even if it requires splitting a partially completed task into two ("done" vs. "r
 This section must always reflect the actual current state of the work.
 
 - [x] Milestone A: Build the CJK Stroke type → English description table. (2026-05-05)
-- [ ] Milestone B: Implement `parseStrokeOrderText :: Text -> Either ParseError StrokeOrderInfo`.
-- [ ] Milestone C: Implement `parseStrokeOrderFile :: FilePath -> IO (Either ParseError StrokeOrderInfo)`.
+- [x] Milestone B: Implement `parseStrokeOrderText :: Text -> Either ParseError StrokeOrderInfo`. (2026-05-05)
+- [x] Milestone C: Implement `parseStrokeOrderFile :: FilePath -> IO (Either ParseError StrokeOrderInfo)`. (2026-05-05)
 - [ ] Milestone D: Add a hspec test suite with three fixture SVGs (committed under `nihongo-core/test/fixtures/`).
 - [ ] Milestone D: Manual sanity check parsing 漢 from the live submodule.
 
@@ -60,7 +60,30 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- **`xml-conduit` does not apply DTD `#FIXED` ATTLIST defaults when
+  resolving namespaces.** KanjiVG SVGs declare the `kvg` prefix only as a
+  `#FIXED` attribute default in the DOCTYPE (`<!ATTLIST g xmlns:kvg CDATA
+  #FIXED "http://kanjivg.tagaini.net">`), not as a regular `xmlns:kvg`
+  attribute on `<svg>`. As a result a `kvg:type` attribute parses to
+  `Name "type" Nothing (Just "kvg")` — prefix preserved, namespace URL
+  *absent*. The plan's `kvgAttr` builder used `Name local (Just kvgNS)
+  (Just "kvg")`, which never matches anything. Fixed by setting the
+  namespace to `Nothing` and matching on the prefix only. Evidence:
+
+      cabal repl nihongo-core
+      >>> bs <- LBS.readFile ".../06f22.svg"
+      >>> let Right doc = parseLBS def bs
+      >>> -- first <path> element's first attribute key:
+      >>> -- Name "type" Nothing (Just "kvg")
+
+  EP-5 (and any future plan that touches KanjiVG XML) must use the
+  prefix-only form, not the namespaced form.
+
+- **`cabal repl nihongo-core` runs from `nihongo-core/`, so
+  `data/kanjivg/...` relative paths fail in the repl** (already noted in
+  EP-2's Surprises). When manually testing the parser, use the absolute
+  path `/Users/shinzui/Keikaku/bokuno/nihongo/data/kanjivg/kanji/<hex>.svg`
+  or the test-fixtures path under `nihongo-core/test/fixtures/`.
 
 
 ## Decision Log
