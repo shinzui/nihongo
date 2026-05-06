@@ -1,0 +1,38 @@
+-- | Dispatcher for the @nihongo kanji ...@ subcommand group. The group
+--   currently exposes only @kanji show@; future plans (e.g. @kanji
+--   find@) will extend the 'KanjiCommand' ADT and the 'kanjiParser'
+--   block.
+module Nihongo.Cli.Commands.Kanji
+  ( KanjiCommand (..)
+  , kanjiParser
+  , runKanji
+  ) where
+
+import Options.Applicative
+  ( Parser
+  , command
+  , hsubparser
+  , info
+  , progDesc
+  )
+
+import Nihongo.Cli.Commands.Kanji.Show qualified as Show
+import Nihongo.Prelude ()
+
+data KanjiCommand
+  = KShow !Show.ShowCommand
+  deriving stock (Show, Eq)
+
+kanjiParser :: Parser KanjiCommand
+kanjiParser =
+  hsubparser
+    ( command
+        "show"
+        ( info
+            (KShow <$> Show.showParser)
+            (progDesc "Display stroke order for a kanji")
+        )
+    )
+
+runKanji :: KanjiCommand -> IO ()
+runKanji (KShow c) = Show.runShow c

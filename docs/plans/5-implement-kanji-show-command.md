@@ -69,11 +69,11 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone A: Create `Nihongo.Cli.Commands.Kanji.Show` with the parser, types, and runner.
-- [ ] Milestone B: Add the `kanji` subcommand group to `Nihongo.Cli`.
-- [ ] Milestone C: Add the `help/kanji-show.md` topic and register it in `helpTopics`.
-- [ ] Milestone D: Delete the temporary debug subcommands (`kanji-debug-path`, `image-debug-render`).
-- [ ] Milestone E: Manual verification of all five invocation forms in Validation and Acceptance.
+- [x] Milestone A: Create `Nihongo.Cli.Commands.Kanji.Show` with the parser, types, and runner. (2026-05-05)
+- [x] Milestone B: Add the `kanji` subcommand group to `Nihongo.Cli`. (2026-05-05)
+- [x] Milestone C: Add the `help/kanji-show.md` topic and register it in `helpTopics`. (2026-05-05)
+- [x] Milestone D: Delete the temporary debug subcommands (`kanji-debug-path`, `image-debug-render`). (2026-05-05)
+- [x] Milestone E: Manual verification of all 11 invocation forms in Validation and Acceptance. (2026-05-05; all pass — see Outcomes below for the full transcript summary. Visual rendering of the inline image still depends on the user's outer terminal honouring the Kitty graphics escape, but the wire format is correct, the `--no-images` placeholder is correct, and the textual output is byte-stable.)
 
 
 ## Surprises & Discoveries
@@ -81,7 +81,31 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- **`showDefault` renders the `Show` instance, which exposes constructor
+  names like `FormatBoth` in `--help`.** The plan asked for the default
+  to read `(default: both)` but used `showDefault`, which prints
+  `(default: FormatBoth)`. Fixed by switching to
+  `showDefaultWith showFormat` with a small `OutputFormat -> String`
+  function that produces the lowercase tokens the parser accepts. Any
+  future flag whose value type is an ADT should follow the same idiom
+  rather than `showDefault`.
+
+- **No new cross-plan surprises were needed during EP-5.** Every public
+  API exported by EP-2/EP-3/EP-4 composed into `runShow` without
+  adapter code: `resolveKanjiVgRoot dirOverride` → `findStrokeSvg root
+  k` → `parseStrokeOrderFile svg` → `detectImageCapabilityWithOverride
+  noImages` → `displaySvg cap label svg`. The MasterPlan's interface
+  decomposition held up — the only friction was cosmetic (the
+  `showDefault` issue above).
+
+- **Verification ladder for the integration plan**: this plan's
+  Milestone E ran 11 invocation forms (full output, three `--format`
+  variants, piped stdin, ASCII rejection, multi-char rejection, the
+  one-stroke 一 case, `--kanjivg-dir` override, the three `--help`
+  shapes) and all 11 produced the expected output. The text portion
+  is byte-stable; the image portion was verified by emitted-escape
+  shape (cf. EP-4's surprises). Visual end-to-end confirmation in a
+  Kitty-graphics-capable terminal remains a user-driven step.
 
 
 ## Decision Log
@@ -121,7 +145,58 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-05): EP-5 lands `nihongo kanji show <KANJI>` end-to-end.
+The user-visible feature the MasterPlan was created to deliver now works:
+
+    cabal run nihongo -- kanji show 漢
+
+prints a bolded header `漢 (U+6F22, 13 strokes)`, a blank line, the 13
+numbered narrated strokes (`1. ㇔ dot`, `2. ㇔ dot`, ..., `13. ㇏
+right-falling`), a blank line, and emits a tmux-wrapped Kitty graphics
+escape pointing at the cached PNG (or the dim `[Image: 漢]` placeholder
+under `--no-images` / `NoImageSupport`). Stdin works
+(`echo 漢 | nihongo kanji show`); ASCII and multi-character inputs are
+rejected with helpful stderr messages and exit 1; `--format
+text/image/both`, `--no-images`, and `--kanjivg-dir PATH` all behave as
+specified; `nihongo help kanji-show` renders the new help topic; the
+top-level `--help` no longer shows the EP-2/EP-4 debug subcommands.
+
+The two temporary debug subcommands were removed cleanly:
+`kanji-debug-path` and `image-debug-render` modules and their
+registrations in `Nihongo.Cli` are gone; no `hiddenCommands` parser
+remains. `cabal build all` is green; `cabal test all` still reports
+`8 examples, 0 failures` for the EP-3 hspec suite.
+
+Gap: visual rendering of the inline image cannot be verified by the
+implementing agent (the harness runs inside tmux on
+`TERM=screen-256color`). The wire-format escape is verified correct;
+the user should run `nihongo kanji show 漢` once in their normal
+Kitty/WezTerm/Ghostty session as final acceptance, with `set -g
+allow-passthrough on` in their tmux config if applicable.
+
+Lessons:
+
+1. The decomposition (EP-1 foundations, EP-2 lookup, EP-3 parser, EP-4
+   image, EP-5 integration) held up under integration with no
+   surprises beyond the cosmetic `showDefault` quirk. The interfaces
+   each upstream plan documented in its "Public APIs subsequent
+   ExecPlans rely on" section composed without adapter code.
+
+2. Recording cross-plan discoveries in the MasterPlan's Surprises
+   section (the prelude `<.>` collision, the kvg-namespace match
+   shape, the `internal` vs `hidden` distinction) saved EP-5 from
+   re-discovering them. EP-5's code uses
+   `import System.FilePath qualified as FP` (no, actually it doesn't
+   use filepath operators directly), the prefix-only kvg attribute
+   match isn't relevant to EP-5 (it consumes parsed structures, not
+   raw XML), and `internal` vs `hidden` didn't apply (no hidden
+   subcommands in EP-5). But all three were on hand had they been
+   needed.
+
+3. For an integration plan, the Validation matrix is the deliverable:
+   running the documented invocations *as specified* and recording
+   the actual output (in this case all 11 matched) is what proves
+   the MasterPlan's vision was realised.
 
 
 ## Context and Orientation

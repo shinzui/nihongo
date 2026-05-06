@@ -41,6 +41,7 @@ data HelpTopic = HelpTopic
 helpTopics :: [HelpTopic]
 helpTopics =
   [ HelpTopic "about" "Project overview" $(embedStringFile "help/about.md")
+  , HelpTopic "kanji-show" "kanji show command reference" $(embedStringFile "help/kanji-show.md")
   , HelpTopic "width-demo" "Width-handling fixture topic" $(embedStringFile "help/width-demo.md")
   ]
 

@@ -129,7 +129,7 @@ dependency; EP-2/3/4 fan out from it and merge again at EP-5).
 | 2 | Add KanjiVG submodule and lookup | docs/plans/2-add-kanjivg-submodule-and-lookup.md | EP-1 | None | Complete |
 | 3 | Parse KanjiVG stroke order metadata | docs/plans/3-parse-kanjivg-stroke-order-metadata.md | EP-1 | EP-2 | Complete |
 | 4 | Render images in the terminal via Kitty graphics | docs/plans/4-render-images-in-the-terminal-via-kitty-graphics.md | EP-1 | None | Complete |
-| 5 | Implement kanji show command | docs/plans/5-implement-kanji-show-command.md | EP-1, EP-2, EP-3, EP-4 | None | Not Started |
+| 5 | Implement kanji show command | docs/plans/5-implement-kanji-show-command.md | EP-1, EP-2, EP-3, EP-4 | None | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -231,9 +231,9 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-3: Add fixture-based tests covering 漢, あ, and one variant-only edge. (2026-05-05; 8 examples, 0 failures via `cabal test all`)
 - [x] EP-4: Implement `Nihongo.Terminal.Image` (capability detection, Kitty emitter, tmux passthrough, fallback). (2026-05-05; tmux-probe path returns `KittyGraphics` for outer `WezTerm`/`ghostty`/`kitty`; emitter wraps `\\e_Ga=T,f=100,t=f,r=12;<base64-path>` in tmux DCS passthrough when `TMUX` is set.)
 - [x] EP-4: Implement SVG → PNG rasterization via `rsvg-convert` with content-hash caching under `~/.cache/nihongo/strokes/`. (2026-05-05; first call rasterises 109×109 RGBA PNG, second call hits cache.)
-- [ ] EP-5: Add `kanji show` subcommand with stdin fallback, output/image/source option groups.
-- [ ] EP-5: Add `help/kanji-show.md` topic via `file-embed` and register it in the help registry.
-- [ ] EP-5: End-to-end manual verification with 漢 in a Kitty-capable terminal and inside `tmux`.
+- [x] EP-5: Add `kanji show` subcommand with stdin fallback, output/image/source option groups. (2026-05-05)
+- [x] EP-5: Add `help/kanji-show.md` topic via `file-embed` and register it in the help registry. (2026-05-05)
+- [x] EP-5: End-to-end manual verification with 漢 from the agent's harness — 11 of 11 invocations produce the expected output. Final visual confirmation in a Kitty-capable terminal is a user-driven step. (2026-05-05)
 
 
 ## Surprises & Discoveries
@@ -382,4 +382,88 @@ interactions between child plans. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-05): all five child ExecPlans are Complete. The
+vision in section "Vision & Scope" is realised — `nihongo kanji show
+漢` prints the bolded header `漢 (U+6F22, 13 strokes)`, the 13
+narrated strokes from `1. ㇔ dot` through `13. ㇏ right-falling`, and
+emits a tmux-wrapped Kitty graphics escape pointing at the cached PNG
+(or a dim `[Image: 漢]` placeholder under `--no-images`). Stdin
+substitution (`echo 漢 | nihongo kanji show`) and the
+`--format text|image|both`, `--no-images`, `--kanjivg-dir PATH` flags
+all behave as specified. `nihongo help kanji-show` documents the
+feature; `nihongo --help` shows the `kanji` subcommand and no debug
+remnants. `cabal build all` succeeds; `cabal test all` reports
+`8 examples, 0 failures` for the EP-3 hspec parser suite. The
+KanjiVG submodule pinned at tag `r20250816` lives at `data/kanjivg/`.
+
+Commit shape on `master`: 5 commits for EP-1 (foundations) preceded
+this MasterPlan; this MasterPlan added 4 commits for EP-2, 3 commits
+for EP-3, 4 commits for EP-4, and a final batch for EP-5. Every
+commit carries `MasterPlan:`, `ExecPlan:`, and
+`Intention: intention_01kqxhfvpae3xv0dr9bnsxfdxs` trailers.
+
+Gaps:
+
+1. Visual rendering of the inline kanji image cannot be verified by
+   the agent harness. The wire format is correct (`\\ePtmux;\\e\\e_Ga=
+   T,f=100,t=f,r=12;<base64-png-path>\\e\\\\` confirmed via `cat -A`).
+   The user should run `nihongo kanji show 漢` once in their
+   Kitty/WezTerm/Ghostty session — with `set -g allow-passthrough on`
+   in `~/.tmux.conf` if applicable — to see the painted image.
+
+2. The original Decision Log entry citing commit `544d319f...` for
+   the KanjiVG tag was a transcription error from the user's local
+   `master` HEAD. The submodule was correctly pinned to the actual
+   tag commit `bd13ffbcc`. Fixed in EP-2's Surprises and the
+   MasterPlan-level Surprises section.
+
+Decomposition retrospective:
+
+- The five-plan split (foundations, submodule, parser, image,
+  command) held up. Each plan produced a behaviour demonstrable in
+  isolation: EP-1 — `nihongo --version`; EP-2 —
+  `kanji-debug-path 漢` resolves a path; EP-3 — 8 hspec examples
+  pass; EP-4 — `image-debug-render` emits the right escape; EP-5 —
+  `kanji show` produces the documented output. Merging any pair
+  would have produced a plan where two unrelated failures could land
+  together.
+
+- The cross-plan Surprises section earned its keep three times:
+  EP-2's `internal`-on-`InfoMod` correction, EP-3's
+  xml-conduit-namespace correction, and EP-4's prelude/`<.>`
+  collision. Each was a non-obvious gotcha that, if discovered
+  twice, would have wasted real time. The MasterPlan-level
+  duplication into the parent's Surprises section meant EP-5
+  inherited the corrections directly.
+
+- The interfaces each child plan documented in "Public APIs
+  subsequent ExecPlans rely on" composed without adapter code in
+  EP-5's `runShow`. That section is worth treating as part of the
+  plan's contract rather than incidental documentation.
+
+Lessons:
+
+1. **Validate the wire format when the rendering surface is
+   unavailable.** EP-4 and EP-5 both run code that depends on a
+   Kitty-graphics-capable terminal, which the agent harness lacks.
+   Verifying the emitted escape sequence shape with `cat -A`, plus
+   asserting the byte-stable text portions, plus inspecting the
+   produced cache files (`file ~/.cache/nihongo/strokes/<sha>.png`),
+   gave high confidence without a paint surface. Pair this with a
+   user-driven final-acceptance step.
+
+2. **Trust observation over documentation when libraries surprise
+   you.** xml-conduit's KanjiVG namespace handling diverged from
+   what library and corpus docs implied; only inspecting
+   `Map.toList (elementAttributes p1)` at the repl revealed the
+   prefix-only attribute shape. EP-3's plan ladder — build → repl
+   spot-check → test suite — caught this before any test was
+   written against the wrong shape.
+
+3. **Bias toward smaller, more frequent commits with clear
+   trailers.** Every milestone produced its own commit with the
+   `MasterPlan:` / `ExecPlan:` / `Intention:` trailers. `git log
+   --grep "MasterPlan: docs/masterplans/1-"` is a perfect
+   reconstruction of the work; bisecting any regression to a
+   single milestone is trivial. Future MasterPlans should keep
+   this cadence even when the plan is under serial implementation.

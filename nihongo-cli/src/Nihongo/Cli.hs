@@ -13,8 +13,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Options.Applicative
 
-import Nihongo.Cli.Commands.ImageDebug qualified as ImageDebug
-import Nihongo.Cli.Commands.KanjiDebug qualified as KanjiDebug
+import Nihongo.Cli.Commands.Kanji qualified as Kanji
 import Nihongo.Cli.Completions qualified as Completions
 import Nihongo.Cli.Help qualified as Help
 import Nihongo.Cli.Stdin qualified as Stdin
@@ -25,8 +24,7 @@ data Command
   = CmdHello !(Maybe Text)
   | CmdHelp !Help.HelpCommand
   | CmdCompletions !Completions.CompletionsShell
-  | CmdKanjiDebug !KanjiDebug.KanjiDebugCommand
-  | CmdImageDebug !ImageDebug.ImageDebugCommand
+  | CmdKanji !Kanji.KanjiCommand
   deriving stock (Generic, Show, Eq)
 
 runCli :: IO ()
@@ -63,28 +61,11 @@ commandParser =
               (CmdCompletions <$> Completions.completionsCommandParser)
               (progDesc "Print a shell completion script (bash | zsh | fish)")
           )
-    )
-    <|> hiddenCommands
-
--- Hidden internal subcommands. Kept in their own `hsubparser` so we can
--- attach `commandGroup` + `hidden` modifiers to the whole group; optparse
--- does not have a per-command "hide" the way it has per-option `internal`.
-hiddenCommands :: Parser Command
-hiddenCommands =
-  hsubparser
-    ( commandGroup "internal:"
-        <> internal
         <> command
-          "kanji-debug-path"
+          "kanji"
           ( info
-              (CmdKanjiDebug <$> KanjiDebug.kanjiDebugParser)
-              (progDesc "(internal) Resolve the KanjiVG SVG path for a character")
-          )
-        <> command
-          "image-debug-render"
-          ( info
-              (CmdImageDebug <$> ImageDebug.imageDebugParser)
-              (progDesc "(internal) Render an SVG inline via Kitty graphics")
+              (CmdKanji <$> Kanji.kanjiParser)
+              (progDesc "Look up kanji: stroke order, components, readings")
           )
     )
 
@@ -99,5 +80,4 @@ runCommand (CmdHello mName) = do
   traverse_ TIO.putStrLn [Text.pack "Hello, " <> target <> Text.pack "!"]
 runCommand (CmdHelp hc) = Help.runHelpCommand hc
 runCommand (CmdCompletions sh) = Completions.runCompletionsCommand sh
-runCommand (CmdKanjiDebug kc) = KanjiDebug.runKanjiDebug kc
-runCommand (CmdImageDebug ic) = ImageDebug.runImageDebug ic
+runCommand (CmdKanji c) = Kanji.runKanji c
