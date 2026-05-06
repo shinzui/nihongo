@@ -70,32 +70,81 @@ detectImageCapability = do
 --   stroke-order images — taller than kizamu's 8-row default to make
 --   detail readable.
 imageRows :: Int
-imageRows = 12
+imageRows = 20
+
+-- | Maximum size, in bytes of base64-encoded payload, of a single Kitty
+--   APC chunk. The Kitty graphics protocol caps each chunk; PNGs larger
+--   than this get split across multiple @m=1@ continuation chunks ending
+--   with @m=0@.
+chunkSize :: Int
+chunkSize = 4096
 
 -- | Display a PNG file at an absolute path using the Kitty graphics
---   protocol. The terminal reads the file itself (@t=f@) so we do not
---   stream bytes through stdout. When @TMUX@ is set, wraps the inner
---   escape in tmux's DCS passthrough envelope.
+--   protocol with @t=d@ (inline base64 transmission). We *used* to use
+--   @t=f@ (file path) — it's smaller on the wire — but WezTerm's tmux
+--   passthrough silently drops file-path Kitty escapes in some recent
+--   builds. Inline data works everywhere; the cost is a few KB of base64
+--   per kanji.
 --
---   After emitting the escape, prints @imageRows@ newlines so the cursor
+--   When @TMUX@ is set, each chunk is independently wrapped in tmux's
+--   DCS passthrough envelope.
+--
+--   After emitting all chunks, prints @imageRows@ newlines so the cursor
 --   lands below the rendered image, and flushes stdout.
 displayImage :: FilePath -> IO ()
 displayImage absPath = do
   isInTmux <- maybe False (const True) <$> lookupEnv "TMUX"
-  let payload = Base64.encode (BS8.pack absPath)
-      inner =
-        "\ESC_Ga=T,f=100,t=f,r="
-          <> BS8.pack (show imageRows)
-          <> ";"
-          <> payload
-          <> "\ESC\\"
-      escaped =
-        if isInTmux
-          then BS8.pack "\ESCPtmux;" <> tmuxDouble inner <> BS8.pack "\ESC\\"
-          else inner
-  BS8.hPut IO.stdout escaped
+  pngBytes <- BS.readFile absPath
+  let allBase64 = Base64.encode pngBytes
+      chunks = splitChunks chunkSize allBase64
+  emitChunks isInTmux chunks
   replicateM_ imageRows (BS8.hPut IO.stdout "\n")
   IO.hFlush IO.stdout
+
+-- | Split a ByteString into chunks of at most @n@ bytes each. The last
+--   chunk may be shorter; an empty input yields no chunks.
+splitChunks :: Int -> ByteString -> [ByteString]
+splitChunks n bs
+  | BS.null bs = []
+  | BS.length bs <= n = [bs]
+  | otherwise =
+      let (h, t) = BS.splitAt n bs
+       in h : splitChunks n t
+
+emitChunks :: Bool -> [ByteString] -> IO ()
+emitChunks _ [] = pure ()
+emitChunks isInTmux (firstChunk : restChunks) = do
+  emitOne isInTmux (buildFirstEscape (not (null restChunks)) firstChunk)
+  sendRest restChunks
+  where
+    sendRest [] = pure ()
+    sendRest [c] = emitOne isInTmux (buildContEscape False c)
+    sendRest (c : cs) = do
+      emitOne isInTmux (buildContEscape True c)
+      sendRest cs
+
+-- | First chunk carries the action+format+rows+transmission keys.
+buildFirstEscape :: Bool -> ByteString -> ByteString
+buildFirstEscape moreComing chunk =
+  "\ESC_Ga=T,f=100,t=d,r="
+    <> BS8.pack (show imageRows)
+    <> (if moreComing then ",m=1" else ",m=0")
+    <> ";"
+    <> chunk
+    <> "\ESC\\"
+
+-- | Continuation chunks carry only the @m=@ key.
+buildContEscape :: Bool -> ByteString -> ByteString
+buildContEscape moreComing chunk =
+  "\ESC_Gm=" <> (if moreComing then "1" else "0") <> ";" <> chunk <> "\ESC\\"
+
+emitOne :: Bool -> ByteString -> IO ()
+emitOne isInTmux raw =
+  let bytes =
+        if isInTmux
+          then BS8.pack "\ESCPtmux;" <> tmuxDouble raw <> BS8.pack "\ESC\\"
+          else raw
+   in BS8.hPut IO.stdout bytes
 
 -- | Double every ESC byte to escape it through tmux's DCS passthrough.
 tmuxDouble :: ByteString -> ByteString
@@ -115,13 +164,28 @@ cacheDir = do
   createDirectoryIfMissing True dir
   pure dir
 
--- | Given an SVG file path, return the path to a cached PNG of it. If the
---   PNG does not exist yet (cache miss), rasterise it via @rsvg-convert@.
---   The cache key is the SHA-256 of the SVG file contents.
+-- | Bumped whenever the rasterisation arguments change so that old
+--   cache entries (rendered with different parameters) are naturally
+--   bypassed without manual cleanup. Mixed into the SHA-256 cache key.
+cacheVersion :: ByteString
+cacheVersion = "v2:width=384"
+
+-- | Pixel width passed to @rsvg-convert --width@. The KanjiVG SVGs are
+--   only 109 px native; rendering at this larger size gives the inline
+--   image enough resolution to remain crisp at @r=20@ rows of terminal
+--   display.
+rasteriseWidthPx :: Int
+rasteriseWidthPx = 384
+
+-- | Given an SVG file path, return the path to a cached PNG of it. If
+--   the PNG does not exist yet (cache miss), rasterise it via
+--   @rsvg-convert@. The cache key is the SHA-256 of @cacheVersion@
+--   prepended to the SVG file contents — so changing @cacheVersion@
+--   invalidates every entry in lockstep with the rasterisation params.
 ensurePng :: FilePath -> IO (Either Text FilePath)
 ensurePng svgPath = do
   svgBytes <- BS.readFile svgPath
-  let digest = SHA256.hash svgBytes
+  let digest = SHA256.hash (cacheVersion <> svgBytes)
       hex = Text.pack (concatMap (printf "%02x") (BS.unpack digest))
   dir <- cacheDir
   let pngPath = dir FP.</> Text.unpack hex FP.<.> "png"
@@ -136,7 +200,14 @@ rasterise svgPath pngPath = do
     try
       ( readProcessWithExitCode
           "rsvg-convert"
-          ["--format=png", "--output", pngPath, svgPath]
+          [ "--format=png"
+          , "--width"
+          , show rasteriseWidthPx
+          , "--keep-aspect-ratio"
+          , "--output"
+          , pngPath
+          , svgPath
+          ]
           ""
       ) ::
       IO (Either IOException (ExitCode, String, String))

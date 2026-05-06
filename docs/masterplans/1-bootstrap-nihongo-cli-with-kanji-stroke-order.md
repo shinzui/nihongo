@@ -323,12 +323,22 @@ interactions between child plans. Provide concise evidence.
 - **Visual rendering of inline images cannot be self-verified by an
   agent harness running headlessly inside tmux.** `Nihongo.Terminal.Image`
   emits the spec-shaped tmux-wrapped Kitty graphics escape, verified by
-  `cat -A` (`\\ePtmux;\\e\\e_Ga=T,f=100,t=f,r=12;<base64-path>\\e\\\\`),
-  but whether the user's outer terminal actually paints the kanji
-  depends on the terminal supporting Kitty graphics *and* tmux
+  `cat -A`, but whether the user's outer terminal actually paints the
+  kanji depends on the terminal supporting Kitty graphics *and* tmux
   passthrough being enabled (`set -g allow-passthrough on`). EP-5's
   end-to-end manual verification milestone has to be performed by the
   user, not by the implementing agent.
+
+- **WezTerm + tmux silently drops Kitty `t=f` (file-path) escapes; we
+  now use `t=d` (inline base64) with chunking.** Discovered after
+  initial MasterPlan close-out: the user reported "no image, no
+  garbage" in WezTerm 0-unstable-2026-03-31 + tmux 3.6a with
+  `allow-passthrough on`. Manual testing showed `t=f` failed and `t=d`
+  worked. EP-4's emitter switched to chunked `t=d` (4096-byte base64
+  chunks, `m=1`/`m=0` framing). Display row count also bumped from 12
+  to 20 with a 384-pixel rasterisation backing it for crisper output;
+  cache key versioned (`v2:width=384`) to invalidate stale renders.
+  Recorded in EP-4's Surprises and Decision Log.
 
 
 ## Decision Log

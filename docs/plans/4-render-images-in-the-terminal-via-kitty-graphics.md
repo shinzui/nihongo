@@ -101,6 +101,29 @@ implementation. Provide concise evidence.
   passed through, and the plan's original list omitted that case. Added
   for completeness; harmless when running outside Kitty.
 
+- **`t=f` (file-path transmission) is silently dropped by WezTerm's
+  Kitty graphics implementation when the escape arrives via tmux DCS
+  passthrough.** Discovered post-merge when the user reported "blank
+  gap, no image" in WezTerm 0-unstable-2026-03-31 + tmux 3.6a (with
+  `allow-passthrough on`). Verified by running the same Kitty escape
+  manually — `t=f` produced no image, `t=d` (inline base64) produced
+  the image. Outside tmux, `t=f` worked. The fix is to switch nihongo
+  to `t=d` and chunk the base64 payload across multiple APC sequences
+  (Kitty's protocol limits each chunk to 4096 bytes; we use that as
+  our chunk size, with `m=1` on every chunk except the last which
+  carries `m=0`). Each chunk gets its own tmux DCS envelope. The
+  `t=f` path is not preserved because there's no clean fallback (we'd
+  have to probe the failure, which is not visible in-protocol). EP-5
+  inherits this behaviour transparently.
+
+- **Display row count bumped from 12 to 20, with a higher-resolution
+  rasterisation step (384px width) backing it.** The 12-row display at
+  the native 109px SVG was hard to read; doubling the row count and
+  rasterising at ~3.5x native gives crisp output at terminal display
+  size. The cache key now includes a version tag (`v2:width=384`) so
+  any cached PNGs from the previous render parameters are
+  automatically bypassed when callers ask for a path.
+
 
 ## Decision Log
 
