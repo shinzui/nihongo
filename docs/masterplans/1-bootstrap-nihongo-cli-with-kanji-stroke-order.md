@@ -125,7 +125,7 @@ dependency; EP-2/3/4 fan out from it and merge again at EP-5).
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Establish nihongo CLI foundations | docs/plans/1-establish-nihongo-cli-foundations.md | None | None | Not Started |
+| 1 | Establish nihongo CLI foundations | docs/plans/1-establish-nihongo-cli-foundations.md | None | None | In Progress |
 | 2 | Add KanjiVG submodule and lookup | docs/plans/2-add-kanjivg-submodule-and-lookup.md | EP-1 | None | Not Started |
 | 3 | Parse KanjiVG stroke order metadata | docs/plans/3-parse-kanjivg-stroke-order-metadata.md | EP-1 | EP-2 | Not Started |
 | 4 | Render images in the terminal via Kitty graphics | docs/plans/4-render-images-in-the-terminal-via-kitty-graphics.md | EP-1 | None | Not Started |

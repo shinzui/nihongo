@@ -24,6 +24,8 @@
             pkgs.just
             pkgs.cabal-install
             pkgs.pkg-config
+            pkgs.librsvg
+            pkgs.gitMinimal
             (haskellPackages.ghcWithPackages (ps: [
               ps.haskell-language-server
             ]))

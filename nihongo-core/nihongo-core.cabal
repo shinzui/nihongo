@@ -30,6 +30,7 @@ common common-options
   default-extensions:
     DeriveAnyClass
     DuplicateRecordFields
+    MultilineStrings
     OverloadedLabels
     OverloadedStrings
 

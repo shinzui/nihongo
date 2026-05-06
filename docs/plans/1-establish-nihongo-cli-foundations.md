@@ -58,8 +58,8 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone A: Update `flake.nix` and shared cabal `common-options`.
-- [ ] Milestone A: Verify `nix develop` provides `rsvg-convert` and `git` >= 2.30.
+- [x] Milestone A: Update `flake.nix` and shared cabal `common-options`. (2026-05-05)
+- [x] Milestone A: Verify `nix develop` provides `rsvg-convert` and `git` >= 2.30. (2026-05-05; rsvg-convert from librsvg-2.61.4, git 2.53.0)
 - [ ] Milestone B: Expand `Nihongo.Prelude` per haskell-jitsurei custom-prelude pattern.
 - [ ] Milestone B: Add `Nihongo.Pretty` ANSI helpers in `nihongo-cli`.
 - [ ] Milestone C: Implement `Nihongo.Cli.Version` with githash + CPP fallback.
@@ -76,7 +76,15 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- The existing scaffold's `nihongo-cli/src/Nihongo/Cli.hs` does NOT compile as
+  shipped: the `command` field on `Options` and the `command` builder from
+  `Options.Applicative` are ambiguously in scope, producing GHC-87543 "Ambiguous
+  occurrence 'command'" at both the field-dot use site and the `hsubparser`
+  builder. Evidence: `cabal build all` before any edits fails with two GHC-87543
+  errors. Fix folded into Milestone E by `import Options.Applicative hiding
+  (command)` plus `import qualified Options.Applicative as OA` and using
+  `OA.command "hello"`. The `Nihongo.Cli.Help` module already follows this
+  qualification pattern.
 
 
 ## Decision Log
