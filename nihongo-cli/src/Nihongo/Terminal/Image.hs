@@ -80,24 +80,33 @@ chunkSize :: Int
 chunkSize = 4096
 
 -- | Display a PNG file at an absolute path using the Kitty graphics
---   protocol with @t=d@ (inline base64 transmission). We *used* to use
---   @t=f@ (file path) — it's smaller on the wire — but WezTerm's tmux
---   passthrough silently drops file-path Kitty escapes in some recent
---   builds. Inline data works everywhere; the cost is a few KB of base64
---   per kanji.
+--   protocol with @t=d@ (inline base64 transmission). We do not use
+--   @t=f@ (file path) because WezTerm's tmux passthrough silently
+--   drops file-path Kitty escapes in some recent builds.
 --
---   When @TMUX@ is set, each chunk is independently wrapped in tmux's
---   DCS passthrough envelope.
+--   The PNG payload is split into 4096-byte base64 chunks (the per-APC
+--   limit Kitty's protocol specifies). Outside tmux, each chunk is
+--   emitted as its own @\\e_G...\\e\\\\@ sequence. Inside tmux, all
+--   chunks are concatenated and emitted inside a *single* outer tmux
+--   DCS passthrough envelope (rather than one envelope per chunk) —
+--   WezTerm's tmux passthrough buffers chunk continuations within a
+--   single DCS event, but does not associate continuations across
+--   separate DCS events.
 --
---   After emitting all chunks, prints @imageRows@ newlines so the cursor
---   lands below the rendered image, and flushes stdout.
+--   After emitting all chunks, prints @imageRows@ newlines so the
+--   cursor lands below the rendered image, and flushes stdout.
 displayImage :: FilePath -> IO ()
 displayImage absPath = do
   isInTmux <- maybe False (const True) <$> lookupEnv "TMUX"
   pngBytes <- BS.readFile absPath
   let allBase64 = Base64.encode pngBytes
       chunks = splitChunks chunkSize allBase64
-  emitChunks isInTmux chunks
+      kittyStream = buildKittyStream chunks
+      bytes =
+        if isInTmux
+          then BS8.pack "\ESCPtmux;" <> tmuxDouble kittyStream <> BS8.pack "\ESC\\"
+          else kittyStream
+  BS8.hPut IO.stdout bytes
   replicateM_ imageRows (BS8.hPut IO.stdout "\n")
   IO.hFlush IO.stdout
 
@@ -111,17 +120,19 @@ splitChunks n bs
       let (h, t) = BS.splitAt n bs
        in h : splitChunks n t
 
-emitChunks :: Bool -> [ByteString] -> IO ()
-emitChunks _ [] = pure ()
-emitChunks isInTmux (firstChunk : restChunks) = do
-  emitOne isInTmux (buildFirstEscape (not (null restChunks)) firstChunk)
-  sendRest restChunks
+-- | Concatenate a list of base64 chunks into a sequence of Kitty APC
+--   escapes. The first carries @a=T,f=100,t=d,r=<rows>@; each subsequent
+--   chunk carries only @m=1@; the last chunk in the stream carries
+--   @m=0@. A single-chunk stream collapses to one @m=0@ APC.
+buildKittyStream :: [ByteString] -> ByteString
+buildKittyStream [] = ""
+buildKittyStream [only] = buildFirstEscape False only
+buildKittyStream (c0 : rest) =
+  buildFirstEscape True c0 <> buildRest rest
   where
-    sendRest [] = pure ()
-    sendRest [c] = emitOne isInTmux (buildContEscape False c)
-    sendRest (c : cs) = do
-      emitOne isInTmux (buildContEscape True c)
-      sendRest cs
+    buildRest [] = ""
+    buildRest [c] = buildContEscape False c
+    buildRest (c : cs) = buildContEscape True c <> buildRest cs
 
 -- | First chunk carries the action+format+rows+transmission keys.
 buildFirstEscape :: Bool -> ByteString -> ByteString
@@ -137,14 +148,6 @@ buildFirstEscape moreComing chunk =
 buildContEscape :: Bool -> ByteString -> ByteString
 buildContEscape moreComing chunk =
   "\ESC_Gm=" <> (if moreComing then "1" else "0") <> ";" <> chunk <> "\ESC\\"
-
-emitOne :: Bool -> ByteString -> IO ()
-emitOne isInTmux raw =
-  let bytes =
-        if isInTmux
-          then BS8.pack "\ESCPtmux;" <> tmuxDouble raw <> BS8.pack "\ESC\\"
-          else raw
-   in BS8.hPut IO.stdout bytes
 
 -- | Double every ESC byte to escape it through tmux's DCS passthrough.
 tmuxDouble :: ByteString -> ByteString
