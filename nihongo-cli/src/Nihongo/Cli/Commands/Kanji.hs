@@ -16,11 +16,13 @@ import Options.Applicative
   , progDesc
   )
 
+import Nihongo.Cli.Commands.Kanji.Png qualified as Png
 import Nihongo.Cli.Commands.Kanji.Show qualified as Show
 import Nihongo.Prelude ()
 
 data KanjiCommand
   = KShow !Show.ShowCommand
+  | KPng !Png.PngCommand
   deriving stock (Show, Eq)
 
 kanjiParser :: Parser KanjiCommand
@@ -32,7 +34,14 @@ kanjiParser =
             (KShow <$> Show.showParser)
             (progDesc "Display stroke order for a kanji")
         )
+        <> command
+          "png"
+          ( info
+              (KPng <$> Png.pngParser)
+              (progDesc "Print the path to a cached PNG of a kanji's stroke order")
+          )
     )
 
 runKanji :: KanjiCommand -> IO ()
 runKanji (KShow c) = Show.runShow c
+runKanji (KPng c) = Png.runPng c

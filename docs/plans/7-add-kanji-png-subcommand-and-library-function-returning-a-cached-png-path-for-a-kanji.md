@@ -57,7 +57,9 @@ the round-trip through `cat`:
 
     cat "$(cabal run -v0 nihongo -- kanji png 漢)" | file -
 
-reports `PNG image data, 109 x 109, 8-bit/color RGBA, non-interlaced`.
+reports `/dev/stdin: PNG image data, 384 x 384, 8-bit/color RGBA, non-interlaced`
+(the upstream `Nihongo.Terminal.Image` rasteriser was bumped to 384 px width by
+commit `c06255b` on 2026-05-05 — see *Surprises & Discoveries*).
 
 This plan adds no new system dependency: `rsvg-convert` (from `librsvg`,
 declared in `flake.nix` since EP-1) is already required by the existing inline
@@ -70,7 +72,7 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone A: Add `Nihongo.Kanji.Png` library module exporting `KanjiPngOptions`, `KanjiPngError`, and `kanjiPngPath`.
+- [x] Milestone A: Add `Nihongo.Kanji.Png` library module exporting `KanjiPngOptions`, `KanjiPngError`, and `kanjiPngPath`. (2026-05-05; commit `af87b28`. `cabal build all` clean; module compiled `[7 of 12]` with no warnings. Smoke test deferred to Milestone B's CLI exercise to avoid a redundant repl session.)
 - [ ] Milestone B: Add `Nihongo.Cli.Commands.Kanji.Png` subcommand and wire it into `Nihongo.Cli.Commands.Kanji.kanjiParser`.
 - [ ] Milestone C: Add `nihongo-cli/help/kanji-png.md` and register it in `Nihongo.Cli.Help.helpTopics`.
 - [ ] Milestone D: End-to-end manual verification of every invocation form listed in *Validation and Acceptance*.
@@ -81,7 +83,25 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- **Rasterisation width and cached PNG dimensions are 384 × 384, not the
+  109 × 109 the plan originally asserted.** The original draft was written
+  against EP-4 Milestone C's 109-px native-width output. Commit `c06255b`
+  ("fix(image): switch t=f→t=d with chunking; bump rows + raster width")
+  bumped `Nihongo.Terminal.Image`'s rsvg-convert call to a 384-px target
+  width and changed the cache-key prefix to `v2:width=384` so old entries
+  are naturally bypassed. EP-7 inherits whatever width the upstream module
+  produces and intentionally takes no opinion on it; the plan's contract is
+  "the printed path points to a valid PNG of the kanji". Updated the
+  Purpose / Big Picture and Validation and Acceptance sections to reflect
+  the actual current dimensions and to phrase acceptance as "is a PNG of
+  this kanji" rather than "is exactly N × N".
+
+  Evidence (Milestone B smoke test, 2026-05-05):
+
+      $ cabal run -v0 nihongo -- kanji png 漢
+      /Users/shinzui/.cache/nihongo/strokes/6863922aeab886a6882c472b463dc0e81cf36abb41e4c2c5fe479ebd6fe2c2be.png
+      $ file "$(cabal run -v0 nihongo -- kanji png 漢)"
+      .../strokes/6863922aeab886a6882c472b463dc0e81cf36abb41e4c2c5fe479ebd6fe2c2be.png: PNG image data, 384 x 384, 8-bit/color RGBA, non-interlaced
 
 
 ## Decision Log
@@ -715,7 +735,9 @@ positional form (the cache key is the SVG bytes, which are identical for the
 same kanji).
 
 `cabal run -v0 nihongo -- kanji png 漢 | xargs file` reports the path as a
-PNG image of dimensions 109 × 109.
+PNG image of dimensions 384 × 384 (or whatever the current rasterisation
+width is — the EP-7 contract is "the path points to a valid PNG of the
+kanji", not a particular pixel count).
 
 `cabal run nihongo -- kanji png 一` prints a path to a different
 `<sha>.png` file, also a valid PNG, and exits 0.

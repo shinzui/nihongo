@@ -40,6 +40,7 @@ library
   exposed-modules:
     Nihongo.Cli
     Nihongo.Cli.Commands.Kanji
+    Nihongo.Cli.Commands.Kanji.Png
     Nihongo.Cli.Commands.Kanji.Show
     Nihongo.Cli.Completions
     Nihongo.Cli.Help
