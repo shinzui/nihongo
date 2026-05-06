@@ -7,10 +7,14 @@ module Nihongo.Kanji
     mkKanji,
     kanjiCodepointHex,
     KanjiError (..),
+    KanjiParseError (..),
+    parseKanjis,
+    renderKanjiParseError,
   )
 where
 
-import Data.Char (ord)
+import Data.Char (isSpace, ord)
+import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as Text
 import Nihongo.Prelude
 import Numeric (showHex)
@@ -47,3 +51,39 @@ kanjiCodepointHex (Kanji c) =
   Text.pack (pad 5 (showHex (ord c) ""))
   where
     pad n s = replicate (n - length s) '0' <> s
+
+-- | Failure modes reported by 'parseKanjis'.
+data KanjiParseError
+  = -- | Input contained no non-whitespace characters.
+    KpeEmpty
+  | -- | Input contained a character outside the accepted Japanese ranges.
+    KpeNotJapanese !Char
+  deriving stock (Eq, Show)
+
+-- | Parse a 'Text' word into one or more 'Kanji', preserving input order.
+--
+--   Whitespace is stripped before validation, so @\"食 べ る\"@ and
+--   @\"食べる\"@ produce the same three-character result. The first
+--   non-Japanese character (after whitespace removal) aborts parsing with
+--   'KpeNotJapanese'; an entirely-whitespace or empty input yields
+--   'KpeEmpty'.
+parseKanjis :: Text -> Either KanjiParseError (NonEmpty Kanji)
+parseKanjis raw =
+  let stripped = Text.filter (not . isSpace) raw
+   in case Text.unpack stripped of
+        [] -> Left KpeEmpty
+        (c : cs) -> do
+          k <- foldChar c
+          ks <- traverse foldChar cs
+          Right (k NE.:| ks)
+  where
+    foldChar c = case mkKanji c of
+      Left (KanjiOutOfRange ch) -> Left (KpeNotJapanese ch)
+      Right k -> Right k
+
+-- | Render a 'KanjiParseError' as a user-facing message suitable for stderr.
+renderKanjiParseError :: KanjiParseError -> Text
+renderKanjiParseError KpeEmpty =
+  "expected at least one Japanese character"
+renderKanjiParseError (KpeNotJapanese c) =
+  "not a Japanese character: " <> Text.singleton c
