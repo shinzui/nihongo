@@ -64,7 +64,7 @@ This section must always reflect the actual current state of the work.
 
 - [x] Milestone A: Add the KanjiVG git submodule at `data/kanjivg/` pinned to `r20250816`. (2026-05-05)
 - [x] Milestone A: Document submodule clone instructions in `README.md`. (2026-05-05)
-- [ ] Milestone B: Implement `Nihongo.Kanji` (newtype + smart constructor + codepoint helpers).
+- [x] Milestone B: Implement `Nihongo.Kanji` (newtype + smart constructor + codepoint helpers). (2026-05-05)
 - [ ] Milestone C: Implement `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`).
 - [ ] Milestone D: Add the temporary `kanji-debug-path` subcommand to validate end-to-end and exercise root resolution.
 - [ ] Milestone D: Manual verification of all three lookup cases (kanji, kana, non-Japanese).

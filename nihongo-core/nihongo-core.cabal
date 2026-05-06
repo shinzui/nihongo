@@ -38,6 +38,7 @@ library
   import: common-options
   hs-source-dirs: src
   exposed-modules:
+    Nihongo.Kanji
     Nihongo.Prelude
 
   build-depends:
