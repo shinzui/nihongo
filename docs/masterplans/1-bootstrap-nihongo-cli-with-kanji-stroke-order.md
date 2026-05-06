@@ -126,7 +126,7 @@ dependency; EP-2/3/4 fan out from it and merge again at EP-5).
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Establish nihongo CLI foundations | docs/plans/1-establish-nihongo-cli-foundations.md | None | None | Complete |
-| 2 | Add KanjiVG submodule and lookup | docs/plans/2-add-kanjivg-submodule-and-lookup.md | EP-1 | None | In Progress |
+| 2 | Add KanjiVG submodule and lookup | docs/plans/2-add-kanjivg-submodule-and-lookup.md | EP-1 | None | Complete |
 | 3 | Parse KanjiVG stroke order metadata | docs/plans/3-parse-kanjivg-stroke-order-metadata.md | EP-1 | EP-2 | Not Started |
 | 4 | Render images in the terminal via Kitty graphics | docs/plans/4-render-images-in-the-terminal-via-kitty-graphics.md | EP-1 | None | Not Started |
 | 5 | Implement kanji show command | docs/plans/5-implement-kanji-show-command.md | EP-1, EP-2, EP-3, EP-4 | None | Not Started |
@@ -224,8 +224,8 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-1: Add `Nihongo.Cli.Stdin`, `Nihongo.Cli.Width`, and `Nihongo.Cli.Version` modules. (2026-05-05)
 - [x] EP-1: Add `help`, `completions`, and `--version` subcommands; replace stub parser with the parser-shape-safe pattern. (2026-05-05)
 - [x] EP-1: Update `flake.nix` (`librsvg`, `gitMinimal`) and `cabal` `common-options` (`MultilineStrings`, full warning set). (2026-05-05; MultilineStrings added; warning set unchanged from scaffold which already matched the plan's baseline)
-- [ ] EP-2: Add `data/kanjivg/` git submodule pinned to `r20250816`.
-- [ ] EP-2: Implement `Nihongo.Kanji` (newtype + smart constructor) and `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`).
+- [x] EP-2: Add `data/kanjivg/` git submodule pinned to `r20250816`. (2026-05-05; tag resolves to commit `bd13ffbcc`, not the `544d319f` master HEAD originally referenced)
+- [x] EP-2: Implement `Nihongo.Kanji` (newtype + smart constructor) and `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`). (2026-05-05; also added a temporary hidden `kanji-debug-path` subcommand for end-to-end validation — EP-5 removes it)
 - [ ] EP-3: Implement `Nihongo.Kanji.StrokeOrder` SVG parser with `xml-conduit`.
 - [ ] EP-3: Build the CJK Stroke type → English description table.
 - [ ] EP-3: Add fixture-based tests covering 漢, あ, and one variant-only edge.
@@ -273,6 +273,35 @@ interactions between child plans. Provide concise evidence.
   cross-plan convention: any module mixing the prelude with optparse can
   rely on `argument` resolving to the optparse builder. If a module needs
   the lens setter it must `import Control.Lens (argument)` explicitly.
+
+- **`import Nihongo.Prelude ()` (instances-only) is the established form
+  for modules that don't use a prelude re-export.** Discovered while
+  writing EP-2's `Nihongo.Kanji.KanjiVg`, which only uses base-Prelude
+  names. EP-1's own `Nihongo.Cli.Completions` already follows this
+  pattern. EP-3, EP-4, EP-5 should default to the empty-list import in
+  modules that don't reference lens, generic-lens labels, `Generic`,
+  unqualified `Text`, aeson helpers, etc., or `-Wall` will flag the open
+  import as redundant.
+
+- **Hiding subcommands needs `internal` (not `hidden`) at the
+  `Mod CommandFields` level, in a separate `hsubparser` joined by `<|>`.**
+  EP-2's plan called for `internal` on the `InfoMod` of a single command;
+  that does not type-check (`internal :: Mod f a` is polymorphic but
+  `InfoMod` is its own type). `hidden` only suppresses the brief usage
+  line — it leaves the command listed under "Available commands:". The
+  pattern that fully hides is:
+
+      hsubparser ( ...public commands... )
+        <|>
+        hsubparser ( commandGroup "internal:" <> internal <> command "..." (...) )
+
+  EP-5 must use the same idiom for any hidden subcommands it introduces.
+
+- **KanjiVG release tag `r20250816` resolves to commit `bd13ffbcc`, not
+  the `544d319f` originally cited in the EP-2 Decision Log.** That hash
+  was the user's clone's `master` HEAD, not the tag itself. EP-3/EP-5
+  should reference the tag (`r20250816`) for stability rather than
+  paste a commit hash.
 
 
 ## Decision Log

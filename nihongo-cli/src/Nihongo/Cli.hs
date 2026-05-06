@@ -13,6 +13,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Options.Applicative
 
+import Nihongo.Cli.Commands.KanjiDebug qualified as KanjiDebug
 import Nihongo.Cli.Completions qualified as Completions
 import Nihongo.Cli.Help qualified as Help
 import Nihongo.Cli.Stdin qualified as Stdin
@@ -23,6 +24,7 @@ data Command
   = CmdHello !(Maybe Text)
   | CmdHelp !Help.HelpCommand
   | CmdCompletions !Completions.CompletionsShell
+  | CmdKanjiDebug !KanjiDebug.KanjiDebugCommand
   deriving stock (Generic, Show, Eq)
 
 runCli :: IO ()
@@ -60,6 +62,23 @@ commandParser =
               (progDesc "Print a shell completion script (bash | zsh | fish)")
           )
     )
+    <|> hiddenCommands
+
+-- Hidden internal subcommands. Kept in their own `hsubparser` so we can
+-- attach `commandGroup` + `hidden` modifiers to the whole group; optparse
+-- does not have a per-command "hide" the way it has per-option `internal`.
+hiddenCommands :: Parser Command
+hiddenCommands =
+  hsubparser
+    ( commandGroup "internal:"
+        <> internal
+        <> command
+          "kanji-debug-path"
+          ( info
+              (CmdKanjiDebug <$> KanjiDebug.kanjiDebugParser)
+              (progDesc "(internal) Resolve the KanjiVG SVG path for a character")
+          )
+    )
 
 helloParser :: Parser Command
 helloParser =
@@ -72,3 +91,4 @@ runCommand (CmdHello mName) = do
   traverse_ TIO.putStrLn [Text.pack "Hello, " <> target <> Text.pack "!"]
 runCommand (CmdHelp hc) = Help.runHelpCommand hc
 runCommand (CmdCompletions sh) = Completions.runCompletionsCommand sh
+runCommand (CmdKanjiDebug kc) = KanjiDebug.runKanjiDebug kc

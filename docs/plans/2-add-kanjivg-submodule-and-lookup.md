@@ -66,8 +66,8 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone A: Document submodule clone instructions in `README.md`. (2026-05-05)
 - [x] Milestone B: Implement `Nihongo.Kanji` (newtype + smart constructor + codepoint helpers). (2026-05-05)
 - [x] Milestone C: Implement `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`). (2026-05-05)
-- [ ] Milestone D: Add the temporary `kanji-debug-path` subcommand to validate end-to-end and exercise root resolution.
-- [ ] Milestone D: Manual verification of all three lookup cases (kanji, kana, non-Japanese).
+- [x] Milestone D: Add the temporary `kanji-debug-path` subcommand to validate end-to-end and exercise root resolution. (2026-05-05)
+- [x] Milestone D: Manual verification of all three lookup cases (kanji, kana, non-Japanese). (2026-05-05)
 
 
 ## Surprises & Discoveries
@@ -101,6 +101,19 @@ implementation. Provide concise evidence.
   override. `cabal run nihongo` does run from the project root, so the
   CLI-side acceptance in Milestone D works without the env var.
 
+- **`internal` cannot be applied as an `InfoMod`; the plan's wording was
+  wrong.** `Options.Applicative.internal :: Mod f a` is polymorphic in `f`
+  but does *not* match `InfoMod`, which is its own type (`info`'s second
+  argument). Attempting `info parser (progDesc "..." <> internal)` fails
+  with `Couldn't match expected type: InfoMod Command with actual type:
+  Mod f0 a0`. The working idiom is to put hidden commands in their own
+  `hsubparser` block, attach `commandGroup "internal:" <> internal` at the
+  `Mod CommandFields` level, and combine with the public `hsubparser` via
+  `<|>`. Note that `hidden` is *not* sufficient: `hidden` only suppresses
+  the brief usage line, so the command still appears under "Available
+  commands:" in `--help`. `internal` is what fully removes it. EP-5 should
+  use the same idiom for any other hidden subcommands it introduces.
+
 
 ## Decision Log
 
@@ -131,13 +144,55 @@ Record every decision made while working on the plan.
   they run from the project root. Hard-coding only would break installed binaries.
   Date: 2026-05-05.
 
+- Decision: Hide `kanji-debug-path` via a separate `hsubparser` block joined with
+  `<|>`, using `commandGroup "internal:" <> internal` at the `Mod CommandFields`
+  level — not via `internal` on `InfoMod` (which the plan originally specified
+  but does not type-check) and not via `hidden` (which still surfaces the command
+  under "Available commands:").
+  Rationale: This is the only construct that both compiles and fully suppresses
+  the command from `nihongo --help`. Documented in Surprises so EP-5 inherits
+  the same idiom if it adds further hidden subcommands.
+  Date: 2026-05-05.
+
+- Decision: Use `import Nihongo.Prelude ()` in modules that don't actually
+  reference any prelude re-export.
+  Rationale: The project's `-Wall` flags an unused open import. EP-1's own
+  `Nihongo.Cli.Completions` already established the empty-list convention; we
+  follow it for `Nihongo.Kanji.KanjiVg`. The plan's wording ("starts with
+  `import Nihongo.Prelude`") is satisfied either way.
+  Date: 2026-05-05.
+
 
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-05): all four milestones land in four sequential commits on
+`master`. `git submodule status` reports the submodule at tag `r20250816`
+(commit `bd13ffbcc`). The `nihongo` executable resolves and prints the
+KanjiVG SVG path for both kanji (`漢` → `06f22.svg`) and kana (`あ` →
+`03042.svg`); rejects ASCII (`A` → "not a Japanese character: A", exit 1);
+and rejects multi-character input (`漢字` → "expected a single character
+(got more)", exit 1). The `--kanjivg-dir` flag and `NIHONGO_KANJIVG_DIR`
+env var both override the default `./data/kanjivg` lookup. `nihongo --help`
+omits `kanji-debug-path` (verified). All public APIs documented in
+"Interfaces and Dependencies" exist and behave as specified, so EP-3 and
+EP-5 can consume them unchanged.
+
+Gaps: none from the plan's perspective. The plan's `internal`-on-`InfoMod`
+suggestion did not type-check; a working idiom was substituted and recorded
+in the Decision Log so a future re-implementation from this plan would not
+trip on the same trap.
+
+Lessons: (1) the project's `-Wall` baseline catches the redundant
+`import Nihongo.Prelude` early — EP-3/4/5 should default to
+`import Nihongo.Prelude ()` and switch to the open form only when they
+actually use a prelude export. (2) optparse-applicative's `internal` is a
+polymorphic `Mod f a` but does not match `InfoMod`; the dual-`hsubparser`
++ `<|>` pattern with `commandGroup` and `internal` at the
+`Mod CommandFields` level is the canonical hide-a-subcommand idiom, and
+EP-5 should reuse it if it ever needs a hidden command.
 
 
 ## Context and Orientation
