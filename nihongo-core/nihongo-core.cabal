@@ -41,7 +41,10 @@ library
     Nihongo.Prelude
 
   build-depends:
+    aeson ^>=2.2,
+    aeson-casing ^>=0.2,
     base >=4.20 && <5,
     generic-lens,
     lens ^>=5.3,
     text ^>=2.1,
+    time ^>=1.12,

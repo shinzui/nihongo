@@ -60,8 +60,8 @@ This section must always reflect the actual current state of the work.
 
 - [x] Milestone A: Update `flake.nix` and shared cabal `common-options`. (2026-05-05)
 - [x] Milestone A: Verify `nix develop` provides `rsvg-convert` and `git` >= 2.30. (2026-05-05; rsvg-convert from librsvg-2.61.4, git 2.53.0)
-- [ ] Milestone B: Expand `Nihongo.Prelude` per haskell-jitsurei custom-prelude pattern.
-- [ ] Milestone B: Add `Nihongo.Pretty` ANSI helpers in `nihongo-cli`.
+- [x] Milestone B: Expand `Nihongo.Prelude` per haskell-jitsurei custom-prelude pattern. (2026-05-05)
+- [x] Milestone B: Add `Nihongo.Pretty` ANSI helpers in `nihongo-cli`. (2026-05-05)
 - [ ] Milestone C: Implement `Nihongo.Cli.Version` with githash + CPP fallback.
 - [ ] Milestone C: Implement `Nihongo.Cli.Stdin` (auto-detect piped input).
 - [ ] Milestone C: Implement `Nihongo.Cli.Width` (terminal-size + paragraph wrap).
@@ -97,6 +97,17 @@ Record every decision made while working on the plan.
   to terminal IO, optparse-applicative, or git embedding — none belong in a pure
   library. Keeping them in `nihongo-cli` keeps `nihongo-core` free of `process`,
   `terminal-size`, `githash`, and `file-embed` dependencies.
+  Date: 2026-05-05.
+
+- Decision: Drop `module Data.Generics.Labels` and explicit `liftIO` from the
+  `Nihongo.Prelude` export list relative to the plan as authored.
+  Rationale: `Data.Generics.Labels` is imported with `()` solely for its
+  `IsLabel` instance so `OverloadedLabels` resolves `#field` via generic-lens;
+  it has no exported names, and re-exporting it triggers
+  `-Wdodgy-exports` ("module exports nothing"). `liftIO` is already exported
+  by `MonadIO(..)`, and listing it explicitly triggers `-Wduplicate-exports`.
+  Both warnings are emitted by `-Wall` (which is in the shared common-options
+  stanza). The note in the module header explains why the import remains.
   Date: 2026-05-05.
 
 - Decision: Use `terminal-size` for width detection, never `ansi-terminal`'s

@@ -39,6 +39,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Nihongo.Cli
+    Nihongo.Pretty
 
   build-depends:
     base >=4.20 && <5,
