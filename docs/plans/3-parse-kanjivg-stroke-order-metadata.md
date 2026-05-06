@@ -51,8 +51,8 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone A: Build the CJK Stroke type → English description table. (2026-05-05)
 - [x] Milestone B: Implement `parseStrokeOrderText :: Text -> Either ParseError StrokeOrderInfo`. (2026-05-05)
 - [x] Milestone C: Implement `parseStrokeOrderFile :: FilePath -> IO (Either ParseError StrokeOrderInfo)`. (2026-05-05)
-- [ ] Milestone D: Add a hspec test suite with three fixture SVGs (committed under `nihongo-core/test/fixtures/`).
-- [ ] Milestone D: Manual sanity check parsing 漢 from the live submodule.
+- [x] Milestone D: Add a hspec test suite with three fixture SVGs (committed under `nihongo-core/test/fixtures/`). (2026-05-05)
+- [x] Milestone D: Manual sanity check parsing 漢 from the live submodule. (2026-05-05; 13 strokes, root component "漢", per-stroke descriptions match the plan's expected output verbatim)
 
 
 ## Surprises & Discoveries
@@ -117,13 +117,74 @@ Record every decision made while working on the plan.
   user-facing description should still say "vertical" or "turn-down" for those.
   Date: 2026-05-05.
 
+- Decision: Match KanjiVG attributes by `Name local Nothing (Just "kvg")`,
+  not by `Name local (Just "http://kanjivg.tagaini.net") (Just "kvg")`.
+  Rationale: KanjiVG declares the `kvg` prefix only as a DTD `#FIXED`
+  ATTLIST default, and `xml-conduit` does not honour DTD-defaulted
+  namespace declarations. Real attribute keys parse with the prefix
+  preserved but the namespace URL absent; the plan's original namespaced
+  shape never matched, leaving every `kvg:type` and `kvg:element`
+  unparsed (verified before the fix: `compElement` returned `Nothing`
+  for 漢 and every stroke's `strokeType` was `Nothing`). Documented at
+  greater length in Surprises.
+  Date: 2026-05-05.
+
+- Decision: Suppress `-Wx-partial` in
+  `nihongo-core/test/Test/Nihongo/Kanji/StrokeOrderSpec.hs` via
+  `{-# OPTIONS_GHC -Wno-x-partial #-}`.
+  Rationale: The spec uses `head (strokes info)` after asserting the
+  list's length, so partial-head is safe by construction. Suppressing
+  the warning here keeps the test suite output clean without weakening
+  the project-wide `-Wall` baseline. Production code (the parser
+  itself) does not use `head`.
+  Date: 2026-05-05.
+
 
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-05): three commits land EP-3 on `master`:
+
+    EP-3 Milestone A: CJK Stroke type taxonomy
+    EP-3 Milestones B+C: parse KanjiVG SVG into StrokeOrderInfo
+    EP-3 Milestone D: hspec test suite covering 漢/あ/一 + error reporting
+
+`cabal test all` reports `8 examples, 0 failures`. The manual sanity check
+on the live submodule produces `dot, dot, rising, horizontal, vertical,
+vertical, vertical, turn-down, horizontal, horizontal, horizontal,
+left-falling, right-falling` — verbatim against the expected output in
+the plan's Validation section. Variant suffixes (`㇑a`, `㇕b`, `㇐b`) are
+preserved on `strokeType.variant`, while `describeStrokeType` correctly
+ignores them and returns the base description. The component tree for
+漢 surfaces "漢" at the root, "氵" / "𦰩" at the next level, and so on.
+
+Gap: the plan's `kvgAttr` builder named the namespace URL explicitly and
+would have produced a parser that built but returned all-`Nothing`
+metadata. This was caught by writing the manual sanity check before the
+test suite (Validation section instructed exactly that), and corrected
+on the spot. The fix and rationale are recorded in the Decision Log and
+Surprises.
+
+Lessons:
+
+1. When library docs and observed behaviour diverge, *trust the
+   observation*. xml-conduit's documentation and KanjiVG's docs both
+   describe a namespaced kvg prefix; the actual parsed AST does not
+   carry the URL. The only reliable way to know was to inspect
+   `Map.toList (elementAttributes p1)` in the repl.
+
+2. The plan's sanity-check ladder (build → repl spot-check → test
+   suite) caught the namespace bug at the spot-check stage, before any
+   test got written against the wrong shape. EP-4 and EP-5 should
+   preserve that ladder rather than skipping straight to tests.
+
+3. EP-5 will compose `parseStrokeOrderFile` (this plan) with
+   `findStrokeSvg` (EP-2). The interfaces match: `findStrokeSvg ::
+   KanjiVgRoot -> Kanji -> IO (Maybe FilePath)` and
+   `parseStrokeOrderFile :: FilePath -> IO (Either ParseError
+   StrokeOrderInfo)`. No adapter layer is required.
 
 
 ## Context and Orientation

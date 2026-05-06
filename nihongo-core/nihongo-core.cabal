@@ -57,3 +57,16 @@ library
     text ^>=2.1,
     time ^>=1.12,
     xml-conduit ^>=1.10,
+
+test-suite nihongo-core-tests
+  import: common-options
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  other-modules:
+    Test.Nihongo.Kanji.StrokeOrderSpec
+  build-depends:
+    base >=4.20 && <5,
+    hspec ^>=2.11,
+    nihongo-core,
+    text ^>=2.1,
