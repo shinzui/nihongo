@@ -125,7 +125,7 @@ dependency; EP-2/3/4 fan out from it and merge again at EP-5).
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Establish nihongo CLI foundations | docs/plans/1-establish-nihongo-cli-foundations.md | None | None | In Progress |
+| 1 | Establish nihongo CLI foundations | docs/plans/1-establish-nihongo-cli-foundations.md | None | None | Complete |
 | 2 | Add KanjiVG submodule and lookup | docs/plans/2-add-kanjivg-submodule-and-lookup.md | EP-1 | None | Not Started |
 | 3 | Parse KanjiVG stroke order metadata | docs/plans/3-parse-kanjivg-stroke-order-metadata.md | EP-1 | EP-2 | Not Started |
 | 4 | Render images in the terminal via Kitty graphics | docs/plans/4-render-images-in-the-terminal-via-kitty-graphics.md | EP-1 | None | Not Started |
@@ -219,11 +219,11 @@ wired into `Nihongo.Cli`).
 Track milestone-level progress across all child plans. Each entry names the child plan
 and the milestone. This section provides an at-a-glance view of the entire initiative.
 
-- [ ] EP-1: Expand `Nihongo.Prelude` per haskell-jitsurei custom-prelude pattern.
-- [ ] EP-1: Add `Nihongo.Pretty` ANSI helpers in `nihongo-cli`.
-- [ ] EP-1: Add `Nihongo.Cli.Stdin`, `Nihongo.Cli.Width`, and `Nihongo.Cli.Version` modules.
-- [ ] EP-1: Add `help`, `completions`, and `--version` subcommands; replace stub parser with the parser-shape-safe pattern.
-- [ ] EP-1: Update `flake.nix` (`librsvg`, `gitMinimal`) and `cabal` `common-options` (`MultilineStrings`, full warning set).
+- [x] EP-1: Expand `Nihongo.Prelude` per haskell-jitsurei custom-prelude pattern. (2026-05-05)
+- [x] EP-1: Add `Nihongo.Pretty` ANSI helpers in `nihongo-cli`. (2026-05-05)
+- [x] EP-1: Add `Nihongo.Cli.Stdin`, `Nihongo.Cli.Width`, and `Nihongo.Cli.Version` modules. (2026-05-05)
+- [x] EP-1: Add `help`, `completions`, and `--version` subcommands; replace stub parser with the parser-shape-safe pattern. (2026-05-05)
+- [x] EP-1: Update `flake.nix` (`librsvg`, `gitMinimal`) and `cabal` `common-options` (`MultilineStrings`, full warning set). (2026-05-05; MultilineStrings added; warning set unchanged from scaffold which already matched the plan's baseline)
 - [ ] EP-2: Add `data/kanjivg/` git submodule pinned to `r20250816`.
 - [ ] EP-2: Implement `Nihongo.Kanji` (newtype + smart constructor) and `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`).
 - [ ] EP-3: Implement `Nihongo.Kanji.StrokeOrder` SVG parser with `xml-conduit`.
@@ -241,7 +241,38 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 Document cross-plan insights, dependency changes, scope adjustments, or unexpected
 interactions between child plans. Provide concise evidence.
 
-(None yet.)
+- **OverloadedRecordDot is not in GHC2024.** The original EP-1 code samples
+  used `opts.command` syntax, which requires `OverloadedRecordDot` (separate
+  from `OverloadedLabels`). Per the haskell-jitsurei
+  `core/record-patterns.md` reference, the project's record convention uses
+  generic-lens labels (`record ^. #field`), not the dot shorthand. EP-2
+  through EP-5 must follow the same convention: every record-bearing data
+  type derives `Generic` with strict (`!`) fields, and field access uses
+  `^. #field` (or pattern matching with field puns for destructuring).
+
+- **aarch64-darwin link failure for the `Paths_*` autogen module.** Linking
+  the executable failed with `ld: Absolute addressing not allowed in arm64
+  code` on relocations between `Nihongo.Cli.Version.appVersion` and
+  `Paths_nihongo_cli.version`. Fix: declare `Paths_<package>` under both
+  `autogen-modules:` and `other-modules:` in the library stanza, mirroring
+  kizamu's cabal layout. Any later plan that adds another package or
+  introduces a module using `Paths_*` must do the same.
+
+- **`Options` wrapper deleted; CLI parser yields `Command` directly.** The
+  EP-1-as-authored plan included a `newtype Options = Options { command ::
+  Command }` wrapper. We dropped it to match the kizamu `Kizamu.Cli` shape
+  (also referenced by jitsurei's CLI patterns). EP-5 should follow the
+  same shape when wiring its `kanji` subcommand: extend `commandParser`'s
+  `hsubparser (...)` block with a new `command "kanji" (...)` entry that
+  produces `CmdKanji <$> Kanji.parser`, and add a `runCommand (CmdKanji
+  kc) = Kanji.runCommand kc` arm.
+
+- **`argument` collides with `Control.Lens.Setter.argument`.** The prelude
+  hides `argument` from its `Control.Lens` re-export so optparse-applicative
+  parsers can use `argument` (and `strArgument`) unqualified. This is a
+  cross-plan convention: any module mixing the prelude with optparse can
+  rely on `argument` resolving to the optparse builder. If a module needs
+  the lens setter it must `import Control.Lens (argument)` explicitly.
 
 
 ## Decision Log

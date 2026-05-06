@@ -13,12 +13,8 @@ module Nihongo.Cli.Completions
 
 import Data.Text.IO qualified as TIO
 import Options.Applicative
-  ( Parser
-  , argument
-  , maybeReader
-  , metavar
-  )
-import Options.Applicative qualified as OA
+
+import Nihongo.Prelude ()
 
 data CompletionsShell = Bash | Zsh | Fish
   deriving stock (Show, Eq)
@@ -27,7 +23,7 @@ completionsCommandParser :: Parser CompletionsShell
 completionsCommandParser =
   argument
     (maybeReader parseShell)
-    (metavar "SHELL" <> OA.help "Target shell: bash | zsh | fish")
+    (metavar "SHELL" <> help "Target shell: bash | zsh | fish")
   where
     parseShell "bash" = Just Bash
     parseShell "zsh" = Just Zsh

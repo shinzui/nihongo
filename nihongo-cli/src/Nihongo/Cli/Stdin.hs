@@ -9,10 +9,11 @@ module Nihongo.Cli.Stdin
   , getTextInput
   ) where
 
-import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import System.IO (hIsTerminalDevice, stdin)
+
+import Nihongo.Prelude
 
 isStdinPiped :: IO Bool
 isStdinPiped = not <$> hIsTerminalDevice stdin

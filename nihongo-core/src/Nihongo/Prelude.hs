@@ -1,41 +1,48 @@
--- | Project-wide prelude for nihongo-core. Re-exports the standard toolkit
---   every module in this project is expected to use, so consumers can
---   `import Nihongo.Prelude` and get lens, generic-lens, common types, IO
+{-# LANGUAGE PackageImports #-}
+
+-- | Project-wide prelude for nihongo. Re-exports the standard toolkit
+--   every module is expected to use, so consumers can `import Nihongo.Prelude`
+--   and get lens, generic-lens labels (`#field` syntax), common types, IO
 --   helpers, and aeson basics without per-module import noise.
 --
---   Note: `Data.Generics.Labels` is imported solely for its
---   `IsLabel name (Lens' s a)` instance (so `#field` resolves with
---   `OverloadedLabels`); it has no exported names to re-export.
+--   Pattern: `PackageImports` + `as X` aggregation; one re-export of
+--   `Control.Lens` directly so the lens vocabulary is in scope unqualified.
 module Nihongo.Prelude
-  ( -- * Lens vocabulary
-    module Control.Lens
-
-    -- * Generic-lens vocabulary
-  , module Data.Generics.Product
-  , module Data.Generics.Sum
-
-    -- * Common types
-  , Text
-  , Generic
-  , NonEmpty (..)
-  , UTCTime
-
-    -- * IO
-  , MonadIO (..)
-  , getCurrentTime
-
-    -- * Aeson basics
-  , FromJSON
-  , ToJSON
+  ( module X
+  , module Control.Lens
   ) where
 
-import Control.Lens
-import Control.Monad.IO.Class (MonadIO (..))
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Generics.Labels ()
-import Data.Generics.Product
-import Data.Generics.Sum
-import Data.List.NonEmpty (NonEmpty (..))
-import Data.Text (Text)
-import Data.Time (UTCTime, getCurrentTime)
-import GHC.Generics (Generic)
+import "base" Control.Applicative as X ((<|>))
+import "base" Control.Monad as X (guard, unless, void, when)
+import "base" Control.Monad.IO.Class as X (MonadIO, liftIO)
+import "base" Data.List.NonEmpty as X (NonEmpty (..))
+import "base" Data.Maybe as X (fromMaybe, isJust, isNothing)
+import "base" Data.Proxy as X (Proxy (..))
+import "base" GHC.Generics as X (Generic)
+
+import "text" Data.Text as X (Text)
+
+import "aeson" Data.Aeson as X
+  ( FromJSON
+  , Options
+  , SumEncoding (..)
+  , ToJSON
+  , camelTo2
+  , defaultOptions
+  , fromJSON
+  , genericParseJSON
+  , genericToEncoding
+  , genericToJSON
+  , parseJSON
+  , toEncoding
+  , toJSON
+  )
+
+import "time" Data.Time as X (UTCTime, getCurrentTime)
+
+-- Enable #label syntax for Generic records.
+import "generic-lens" Data.Generics.Labels ()
+
+-- Re-export lens operators directly. Hide `argument` (the function-argument
+-- setter) so that `Options.Applicative.argument` is unambiguous in CLI parsers.
+import "lens" Control.Lens hiding (argument)

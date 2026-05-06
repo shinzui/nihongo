@@ -46,6 +46,9 @@ library
     Nihongo.Cli.Width
     Nihongo.Pretty
 
+  autogen-modules: Paths_nihongo_cli
+  other-modules: Paths_nihongo_cli
+
   build-depends:
     base >=4.20 && <5,
     bytestring ^>=0.12,

@@ -1,45 +1,42 @@
 -- | Top-level CLI entry point for nihongo.
 --
---   This is a starter scaffold: it wires up `optparse-applicative` with a
---   single `hello` subcommand. Replace `runCommand` with your real
---   subcommand parser when you grow past the bootstrap.
+--   `runCli` parses argv, supports `--version`, and dispatches to one of
+--   three subcommands: `hello` (placeholder demonstrating stdin
+--   auto-detection), `help` (topic browser with width-aware wrapping), and
+--   `completions` (shell completion script generator).
 module Nihongo.Cli
   ( runCli
   ) where
 
 import Data.Foldable (traverse_)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+import Data.Text qualified as Text
+import Data.Text.IO qualified as TIO
 import Options.Applicative
 
--- | A subcommand of the nihongo CLI.
+import Nihongo.Cli.Completions qualified as Completions
+import Nihongo.Cli.Help qualified as Help
+import Nihongo.Cli.Stdin qualified as Stdin
+import Nihongo.Cli.Version (versionInfoOption)
+import Nihongo.Prelude
+
 data Command
-  = Hello (Maybe T.Text)
-  deriving stock (Show, Eq)
+  = CmdHello !(Maybe Text)
+  | CmdHelp !Help.HelpCommand
+  | CmdCompletions !Completions.CompletionsShell
+  deriving stock (Generic, Show, Eq)
 
--- | Top-level CLI options, parsed from argv.
-data Options = Options
-  { command :: Command
-  }
-  deriving stock (Show, Eq)
-
--- | Parse argv and dispatch to the chosen subcommand.
 runCli :: IO ()
 runCli = do
-  opts <- execParser parserInfo
-  runCommand opts.command
-
-parserInfo :: ParserInfo Options
-parserInfo =
-  info
-    (optionsParser <**> helper)
-    ( fullDesc
-        <> progDesc "A terminal-first Japanese learning companion for kanji, vocabulary, reading, and daily study workflows."
-        <> header "nihongo - A terminal-first Japanese learning companion for kanji, vocabulary, reading, and daily study workflows."
-    )
-
-optionsParser :: Parser Options
-optionsParser = Options <$> commandParser
+  cmd <- execParser parserInfo
+  runCommand cmd
+  where
+    parserInfo =
+      info
+        (commandParser <**> helper <**> versionInfoOption)
+        ( fullDesc
+            <> progDesc "Terminal-first Japanese learning companion."
+            <> header "nihongo - kanji, vocabulary, readings, stroke order, and grammar from the command line."
+        )
 
 commandParser :: Parser Command
 commandParser =
@@ -47,12 +44,31 @@ commandParser =
     ( command
         "hello"
         ( info
-            (Hello <$> optional (strOption (long "name" <> metavar "NAME" <> help "Whom to greet")))
-            (progDesc "Print a greeting")
+            helloParser
+            (progDesc "Print a greeting (placeholder example)")
         )
+        <> command
+          "help"
+          ( info
+              (CmdHelp <$> Help.helpCommandParser)
+              (progDesc "Show help topics. Use `help` for the list, `help <topic>` to read one.")
+          )
+        <> command
+          "completions"
+          ( info
+              (CmdCompletions <$> Completions.completionsCommandParser)
+              (progDesc "Print a shell completion script (bash | zsh | fish)")
+          )
     )
 
+helloParser :: Parser Command
+helloParser =
+  CmdHello <$> optional (strOption (long "name" <> metavar "NAME" <> help "Whom to greet"))
+
 runCommand :: Command -> IO ()
-runCommand (Hello mName) =
-  let target = maybe (T.pack "nihongo") id mName
-   in traverse_ TIO.putStrLn [T.pack "Hello, " <> target <> T.pack "!"]
+runCommand (CmdHello mName) = do
+  resolved <- Stdin.getTextInput mName
+  let target = fromMaybe (Text.pack "nihongo") resolved
+  traverse_ TIO.putStrLn [Text.pack "Hello, " <> target <> Text.pack "!"]
+runCommand (CmdHelp hc) = Help.runHelpCommand hc
+runCommand (CmdCompletions sh) = Completions.runCompletionsCommand sh

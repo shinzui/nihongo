@@ -14,10 +14,11 @@ module Nihongo.Cli.Width
   , wrapText
   ) where
 
-import Data.Text (Text)
 import Data.Text qualified as Text
 import System.Console.Terminal.Size (Window (..), size)
 import System.IO (hIsTerminalDevice, stdout)
+
+import Nihongo.Prelude
 
 -- | Cap auto-detected width at this many columns for readability.
 maxAutoWidth :: Int

@@ -67,8 +67,8 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone C: Implement `Nihongo.Cli.Width` (terminal-size + paragraph wrap). (2026-05-05)
 - [x] Milestone D: Implement `Nihongo.Cli.Help` with embedded markdown topics. (2026-05-05)
 - [x] Milestone D: Implement `Nihongo.Cli.Completions` with built-in optparse protocol. (2026-05-05)
-- [ ] Milestone E: Restructure `Nihongo.Cli` to use the parser-shape-safe pattern with `version`, `help`, `completions`, and a placeholder `hello` subcommand wired through stdin auto-detection.
-- [ ] Milestone E: All commands listed in Validation and Acceptance produce the expected output.
+- [x] Milestone E: Restructure `Nihongo.Cli` to use the parser-shape-safe pattern with `version`, `help`, `completions`, and a placeholder `hello` subcommand wired through stdin auto-detection. (2026-05-05)
+- [x] Milestone E: All commands listed in Validation and Acceptance produce the expected output. (2026-05-05; verified --version, help, help <topic>, help <topic> --width N, hello with piped/closed stdin, completions bash, unknown-topic fallthrough)
 
 
 ## Surprises & Discoveries
@@ -90,9 +90,43 @@ implementation. Provide concise evidence.
   `tGitInfoCwdTry` typed-TH splice as a statically known `Right` when `.git`
   is present at compile time, and reports the `Left _` branch as redundant.
   The dual branch is required for portability across `cabal build` (with `.git`)
-  and `nix build` (which strips `.git`); we silence the warning per-file with
-  `{-# OPTIONS_GHC -Wno-overlapping-patterns #-}` and document the reason in
-  the file header.
+  and `nix build` (which strips `.git`). Resolved by lifting the splice and
+  CPP fallback into top-level bindings (`gitInfo`, `nixGitHash`, `gitCommitShort`)
+  per the kizamu / haskell-jitsurei version-with-git-sha pattern; the typed
+  splice no longer sits inside a case-arm, so GHC stops emitting the warning
+  and the per-file `-Wno-overlapping-patterns` pragma is unnecessary.
+
+- aarch64-darwin link failure on the executable: `ld: Absolute addressing not
+  allowed in arm64 code` referencing `Pathszunihongozucli_version1_closure`
+  from `NihongoziCliziVersion_appVersion1_info`. The library compiled cleanly;
+  only the static link of the exe choked on a relocation between the
+  `Paths_nihongo_cli` autogen module and `Nihongo.Cli.Version`. Resolved by
+  declaring `Paths_nihongo_cli` explicitly under `autogen-modules:` and
+  `other-modules:` in the library stanza (matching kizamu's cabal layout).
+  Cabal then emits the autogen module with the right linkage so Apple's ld
+  accepts the references.
+
+- `OverloadedRecordDot` is NOT in GHC2024 (only `OverloadedLabels` is). Code
+  using the project's record convention must use generic-lens labels via
+  `record ^. #field`, not `record.field`. The original plan example used the
+  dot-syntax shorthand; the canonical pattern at
+  `haskell-jitsurei/core/record-patterns.md` is `^. #field`. Adjusted
+  `Nihongo.Cli.Help` to use lens-label access for `HelpTopic`, dropped the
+  `Options` wrapper from `Nihongo.Cli` (kizamu does not use one — `execParser`
+  yields the `Command` directly), and ensured every record-bearing data type
+  derives `Generic` with strict fields.
+
+- The jitsurei prelude pattern (`PackageImports` + `as X` aggregation, with
+  `Control.Lens` re-exported directly) creates one workable conflict:
+  `Control.Lens.Setter.argument` and `Options.Applicative.argument` collide
+  in any module that imports both. The jitsurei `help-topics.md` example
+  sidesteps this for string topics by using `strArgument`, but
+  `Nihongo.Cli.Completions` needs `argument (maybeReader ...)` with a custom
+  reader. Resolved at the prelude: `import "lens" Control.Lens hiding (argument)`,
+  so the lens function-argument setter is unavailable through the prelude
+  but every CLI module can write `argument (...)` unqualified. If any
+  domain code later needs the lens setter it can `import Control.Lens (argument)`
+  explicitly.
 
 
 ## Decision Log
@@ -115,7 +149,54 @@ Record every decision made while working on the plan.
   `-Wdodgy-exports` ("module exports nothing"). `liftIO` is already exported
   by `MonadIO(..)`, and listing it explicitly triggers `-Wduplicate-exports`.
   Both warnings are emitted by `-Wall` (which is in the shared common-options
-  stanza). The note in the module header explains why the import remains.
+  stanza).
+  Date: 2026-05-05.
+
+- Decision: Replace the per-export prelude shape with the canonical
+  haskell-jitsurei `PackageImports` + `as X` aggregation, re-exporting
+  `Control.Lens` directly (with `argument` hidden to avoid clashing with
+  `Options.Applicative.argument`).
+  Rationale: The jitsurei `core/custom-prelude.md` and `core/record-patterns.md`
+  documents prescribe this exact shape; matching it keeps the codebase
+  idiomatic for any contributor who has read those references and avoids
+  per-module reinvention of which generic-lens names to surface. Keeping the
+  prelude minimal (no `Data.Generics.Product` / `Data.Generics.Sum`
+  re-exports) is intentional — generic-lens labels via
+  `record ^. #field` cover the common record-access case without exposing
+  `getField`, `setField`, etc. to every consumer.
+  Date: 2026-05-05.
+
+- Decision: Drop the `Options` wrapper around `Command` and let `execParser`
+  return the `Command` directly, mirroring kizamu's `Kizamu.Cli`.
+  Rationale: The wrapper served no behavioural purpose; its only job in the
+  plan-as-authored was to demonstrate `OverloadedRecordDot`, which is not part
+  of GHC2024 and which the project does not enable in favour of the lens-based
+  record convention. Removing the wrapper eliminates the `command` field-
+  selector / `Options.Applicative.command` ambiguity entirely and makes
+  `runCli` a one-liner case dispatch.
+  Date: 2026-05-05.
+
+- Decision: Lift the typed-TH `tGitInfoCwdTry` splice and the CPP `GIT_HASH`
+  fallback into top-level bindings (`gitInfo :: Either String GitInfo`,
+  `nixGitHash :: Maybe Text`, `gitCommitShort :: Maybe Text`) in
+  `Nihongo.Cli.Version`, matching `Kizamu.Version`.
+  Rationale: When the splice sat inside a `case` arm of `appVersionWithGit`,
+  GHC reported the `Left _` branch as redundant under `-Wall` because the
+  splice's TH-evaluated result was a statically-known `Right` for any build
+  with `.git` present. Lifting to a top-level binding both deduplicates the
+  pattern across the two callers (`gitCommitShort` and any future
+  consumer) and avoids the dead-pattern warning without needing per-file
+  `-Wno-overlapping-patterns`.
+  Date: 2026-05-05.
+
+- Decision: Declare `Paths_nihongo_cli` under both `autogen-modules:` and
+  `other-modules:` in `nihongo-cli.cabal`'s library stanza.
+  Rationale: Without these declarations, cabal's implicit autogen handling
+  emits relocations that Apple's aarch64 linker rejects with
+  "Absolute addressing not allowed in arm64 code" when statically linking
+  the executable that pulls in `Nihongo.Cli.Version` (which imports
+  `Paths_nihongo_cli`). The kizamu cabal file has the same pair of
+  declarations; matching them resolves the link failure.
   Date: 2026-05-05.
 
 - Decision: Use `terminal-size` for width detection, never `ansi-terminal`'s
@@ -133,7 +214,46 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+EP-1 delivers the four behaviours the Purpose section promised. The CLI binary
+prints its version with the embedded git SHA (`nihongo 0.1.0.0 (git: <sha>)`),
+shows the help-topic index and individual topics with terminal-width-aware
+wrapping (verbatim verbatim blocks; byte-stable on pipes), emits bash/zsh/fish
+completion scripts, and accepts piped stdin in the placeholder `hello`
+subcommand. Verified by running every command listed in Validation and
+Acceptance.
+
+What changed against the plan as authored:
+
+- The prelude was rewritten to follow the canonical jitsurei `PackageImports`
+  + `as X` aggregation pattern with one `module Control.Lens` re-export.
+  `argument` is hidden from `Control.Lens` to avoid colliding with
+  `Options.Applicative.argument` in CLI parsers.
+- `Nihongo.Cli` does not have an `Options` wrapper record. `execParser` yields
+  the `Command` ADT directly, mirroring kizamu's CLI module.
+- `Nihongo.Cli.Version` lifts the typed-TH splice and CPP fallback to top-level
+  bindings rather than embedding them in `case` arms; this matches kizamu's
+  Version module and avoids `-Woverlapping-patterns`.
+- `nihongo-cli.cabal` declares `Paths_nihongo_cli` under `autogen-modules:`
+  and `other-modules:` to fix an aarch64-darwin static-link failure.
+- `OverloadedRecordDot` was NOT enabled. The project uses generic-lens labels
+  (`record ^. #field`) per haskell-jitsurei/core/record-patterns.md.
+
+Lessons for downstream plans (EP-2 through EP-5):
+
+1. Modules with records must derive `Generic` with strict (`!`) fields and
+   access fields via `record ^. #field`. Pattern matching with field puns
+   is fine for destructuring.
+2. Use `import Nihongo.Prelude` to get `Text`, `Generic`, `MonadIO`,
+   `liftIO`, `UTCTime`, `getCurrentTime`, `FromJSON`, `ToJSON`, lens
+   operators, and `#label` syntax in one line.
+3. CLI subcommand modules should expose a `parser :: Parser <Command>` and
+   `runCommand :: <Command> -> IO ()`, wired into `Nihongo.Cli.commandParser`.
+   Use unqualified `import Options.Applicative`; for string positional args
+   prefer `strArgument` to avoid the lens collision (or use `argument` for
+   custom readers — it works because the prelude hides lens's `argument`).
+4. Any module that uses `Paths_<package>` should have it declared under
+   both `autogen-modules:` and `other-modules:` in the `.cabal` file to
+   keep aarch64-darwin linking clean.
 
 
 ## Context and Orientation

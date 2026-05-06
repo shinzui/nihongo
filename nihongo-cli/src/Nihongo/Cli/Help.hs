@@ -8,10 +8,11 @@
 --   a topic you must `touch` this module or `cabal clean && cabal build all`
 --   to force a rebuild.
 --
---   The parser shape is `buildHelp <$> optional topicArg <*> widthOption`:
---   both options are siblings of the same applicative so optparse-applicative
---   has no `<|>` branch to commit to prematurely. This avoids the
---   "Missing TOPIC" parser-shape trap when running `nihongo help --width 60`.
+--   The parser shape `buildHelp <$> optional topicArg <*> widthOption`
+--   keeps `topicArg` and `widthOption` as siblings of the same applicative
+--   so optparse-applicative has no `<|>` branch to commit to prematurely.
+--   This avoids the "Missing TOPIC" parser-shape trap when running
+--   `nihongo help --width 60`. See haskell-jitsurei/cli/help-width.md.
 module Nihongo.Cli.Help
   ( HelpTopic (..)
   , HelpCommand (..)
@@ -23,27 +24,19 @@ module Nihongo.Cli.Help
 import Data.FileEmbed (embedStringFile)
 import Data.Foldable (for_)
 import Data.List qualified as List
-import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Options.Applicative
-  ( Parser
-  , argument
-  , long
-  , metavar
-  , option
-  , optional
-  , str
-  )
-import Options.Applicative qualified as OA
 
 import Nihongo.Cli.Width (resolveWidth, wrapText)
+import Nihongo.Prelude
 
 data HelpTopic = HelpTopic
-  { topicName :: Text
-  , topicDescription :: Text
-  , topicContent :: Text
+  { topicName :: !Text
+  , topicDescription :: !Text
+  , topicContent :: !Text
   }
+  deriving stock (Generic, Show, Eq)
 
 helpTopics :: [HelpTopic]
 helpTopics =
@@ -53,21 +46,21 @@ helpTopics =
 
 data HelpCommand
   = ListTopics
-  | ShowTopic Text (Maybe Int)
-  deriving stock (Show, Eq)
+  | ShowTopic !Text !(Maybe Int)
+  deriving stock (Generic, Show, Eq)
 
 helpCommandParser :: Parser HelpCommand
 helpCommandParser =
   buildHelp <$> optional topicArg <*> widthOption
   where
-    topicArg = argument str (metavar "TOPIC" <> OA.help "Help topic to display")
+    topicArg = strArgument (metavar "TOPIC" <> help "Help topic to display")
     widthOption =
       optional $
         option
-          OA.auto
+          auto
           ( long "width"
               <> metavar "COLUMNS"
-              <> OA.help "Wrap output to this many columns"
+              <> help "Wrap output to this many columns"
           )
     buildHelp Nothing _ = ListTopics
     buildHelp (Just t) w = ShowTopic t w
@@ -75,17 +68,17 @@ helpCommandParser =
 runHelpCommand :: HelpCommand -> IO ()
 runHelpCommand ListTopics = do
   TIO.putStrLn "Available help topics:"
-  for_ helpTopics $ \HelpTopic {topicName, topicDescription} ->
-    TIO.putStrLn ("  " <> topicName <> "  -- " <> topicDescription)
+  for_ helpTopics $ \topic ->
+    TIO.putStrLn ("  " <> topic ^. #topicName <> "  -- " <> topic ^. #topicDescription)
   TIO.putStrLn "\nRun `nihongo help <topic>` to read one."
 runHelpCommand (ShowTopic name maybeW) = do
   let needle = Text.toLower name
-  case List.find (\t -> Text.toLower (topicName t) == needle) helpTopics of
+  case List.find (\t -> Text.toLower (t ^. #topicName) == needle) helpTopics of
     Nothing ->
       TIO.putStrLn ("Unknown help topic: " <> name <> ". Run `nihongo help` for the list.")
     Just topic -> do
       mw <- resolveWidth maybeW
-      let body = topicContent topic
+      let body = topic ^. #topicContent
       TIO.putStr $ case mw of
         Nothing -> body
         Just w -> wrapText w body

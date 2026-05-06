@@ -11,7 +11,7 @@ module Nihongo.Pretty
   , colored
   ) where
 
-import Data.Text (Text)
+import Nihongo.Prelude
 
 data Color = Red | Green | Yellow | Blue | Magenta | Cyan | White
   deriving stock (Eq, Show)
