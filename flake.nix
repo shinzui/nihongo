@@ -2,13 +2,19 @@
   description = "CLI to help with studying japanese";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+  inputs.pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs.treefmt-nix.url = "github:numtide/treefmt-nix";
 
-  outputs = { self, nixpkgs, flake-utils }:
+  # Shared Haskell patch management
+  inputs.haskell-nix.url = "github:shinzui/haskell-nix";
+
+  outputs = { self, nixpkgs, pre-commit-hooks, flake-utils, treefmt-nix, ... }@inputs:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        haskellPackages = pkgs.haskell.packages."ghc912";
+        ghcVersion = "ghc9122";
+        haskellPackages = pkgs.haskell.packages.${ghcVersion};
       in
       {
         packages = {
@@ -26,7 +32,7 @@
             pkgs.pkg-config
             pkgs.librsvg
             pkgs.gitMinimal
-            (haskellPackages.ghcWithPackages (ps: [
+            (pkgs.haskell.packages.${ghcVersion}.ghcWithPackages (ps: [
               ps.haskell-language-server
             ]))
           ]
