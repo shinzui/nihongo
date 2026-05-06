@@ -39,6 +39,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Nihongo.Cli
+    Nihongo.Cli.Commands.ImageDebug
     Nihongo.Cli.Commands.KanjiDebug
     Nihongo.Cli.Completions
     Nihongo.Cli.Help

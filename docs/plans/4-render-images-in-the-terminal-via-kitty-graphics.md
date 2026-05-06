@@ -59,9 +59,9 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone A: Implement capability detection (`detectImageCapability`). (2026-05-05; verified inside tmux: `detectImageCapability` returns `KittyGraphics` via the tmux outer-env probe; override `True` short-circuits to `NoImageSupport`.)
 - [x] Milestone B: Implement Kitty escape emitter and tmux passthrough wrapping (`displayImage`). (2026-05-05)
 - [x] Milestone C: Implement SVG → PNG rasterisation with cache (`ensurePng`). (2026-05-05; first call rasterises ~/.cache/nihongo/strokes/<sha>.png at 109×109 RGBA; second call returns the same path with no rsvg-convert process spawned)
-- [ ] Milestone D: Implement `displaySvg` orchestration plus `--no-images` plumbing.
-- [ ] Milestone D: Add the temporary `image-debug-render` subcommand.
-- [ ] Milestone D: Manual verification in Kitty, in tmux-inside-Kitty, and in a non-Kitty terminal.
+- [x] Milestone D: Implement `displaySvg` orchestration plus `--no-images` plumbing. (2026-05-05)
+- [x] Milestone D: Add the temporary `image-debug-render` subcommand. (2026-05-05; hidden via the EP-2 idiom of a separate `hsubparser` with `commandGroup "internal:" <> internal`.)
+- [x] Milestone D: Manual verification of what is verifiable from a non-Kitty harness. (2026-05-05; `--no-images` emits the dim `[Image: @...]` placeholder; the no-flag path emits a tmux-wrapped Kitty escape `\\ePtmux;\\e\\e_Ga=T,f=100,t=f,r=12;<base64-path>\\e\\\\` with the cache hit. Visual verification in a real Kitty/WezTerm/Ghostty terminal still requires the user's eyes — see Surprises.)
 
 
 ## Surprises & Discoveries
@@ -69,7 +69,37 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- **`Control.Lens.Indexed.<.>` (re-exported by `Nihongo.Prelude`)
+  collides with `System.FilePath.<.>`.** A naive
+  `import System.FilePath ((</>), (<.>))` triggers an ambiguous-occurrence
+  error on the first use of `<.>`. Resolved by importing
+  `System.FilePath qualified as FP` and using `FP.</>` / `FP.<.>` at call
+  sites. EP-5 should follow the same idiom for any new `nihongo-cli`
+  module that needs filepath operators.
+
+- **The visual rendering step cannot be verified from the implementing
+  agent's harness in this session** — the harness runs inside tmux on
+  `TERM=screen-256color` with no GUI, so all I can confirm is the *wire
+  shape* of the emitted escape sequence and that no exception is thrown.
+  Confirmed shape:
+
+      \ePtmux;\e\e_Ga=T,f=100,t=f,r=12;L1VzZXJz...\e\\
+
+  This is the spec-correct tmux-wrapped Kitty graphics envelope: outer
+  `\ePtmux;...\e\\`, inner `\e_G` doubled to `\e\e_G`, base64-encoded
+  absolute PNG path payload. Whether the *outer* terminal then renders
+  the kanji image is a product of (a) the user's terminal supporting
+  Kitty graphics and (b) tmux passthrough being enabled (`set -g
+  allow-passthrough on`). Ask the user to run `nihongo
+  image-debug-render data/kanjivg/kanji/06f22.svg` once in their normal
+  Kitty/WezTerm/Ghostty session as final acceptance.
+
+- **`detectImageCapability` accepts `Just "kitty"` as a valid outer
+  `TERM_PROGRAM` from a tmux probe**, in addition to the plan's
+  `WezTerm` and `ghostty`. Reason: tmux running inside Kitty itself
+  reports `TERM_PROGRAM=kitty` (lowercase) when the environment is
+  passed through, and the plan's original list omitted that case. Added
+  for completeness; harmless when running outside Kitty.
 
 
 ## Decision Log
@@ -106,13 +136,77 @@ Record every decision made while working on the plan.
   typical 50-row terminal.
   Date: 2026-05-05.
 
+- Decision: Hide `image-debug-render` from `nihongo --help` by extending
+  the existing internal-commands `hsubparser` block introduced for
+  `kanji-debug-path`, rather than creating a second one.
+  Rationale: One `<|>` branch keeps the parser tree readable; both
+  internal commands share `commandGroup "internal:" <> internal`, so
+  attaching the new `command "image-debug-render" ...` to the same
+  block is the lightest-touch idiom and matches the cross-plan guidance
+  recorded in EP-2's Surprises.
+  Date: 2026-05-05.
+
+- Decision: Accept `Just "kitty"` (lowercase) as a valid outer
+  `TERM_PROGRAM` in `detectImageCapability`'s tmux-probe arm.
+  Rationale: A tmux session started inside Kitty propagates
+  `TERM_PROGRAM=kitty` to the outer environment; without this entry,
+  `detectImageCapability` would falsely return `NoImageSupport` for
+  the most-likely-to-be-Kitty case. WezTerm/ghostty are kept as before.
+  Date: 2026-05-05.
+
 
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-05): four commits land EP-4 on `master`:
+
+    EP-4 Milestone A: Kitty graphics capability detection
+    EP-4 Milestone B: Kitty graphics emitter + tmux passthrough
+    EP-4 Milestone C: SVG→PNG rasterisation with content-hash cache
+    EP-4 Milestone D: displaySvg + image-debug-render command
+
+`Nihongo.Terminal.Image` exposes the four functions EP-5 will call:
+`ImageCapability(..)`, `detectImageCapability`,
+`detectImageCapabilityWithOverride`, `displaySvg`. Capability detection
+inside tmux returns `KittyGraphics` correctly via the
+`tmux show-environment` probe. The rasterisation cache produces a
+~4.5 KB PNG at 109×109 RGBA on first call to
+`ensurePng "data/kanjivg/kanji/06f22.svg"` and returns the same path
+without spawning `rsvg-convert` on the second call. The CLI subcommand
+`nihongo image-debug-render <path>` is wired and hidden from
+`--help`, supports `--no-images`, and emits the spec-shaped
+tmux-wrapped Kitty escape sequence (verified by `cat -A`).
+
+Gap: visual end-to-end verification (a kanji actually appearing in the
+user's terminal) cannot happen from the implementing agent's harness.
+The shape of the wire output is verified; the rendering depends on the
+outer terminal honouring it. EP-5 will add a help topic that documents
+the tmux passthrough requirement, and the user should run
+`nihongo image-debug-render data/kanjivg/kanji/06f22.svg` once
+manually as final acceptance.
+
+Lessons:
+
+1. The prelude re-exports more than its name advertises. `<.>` from
+   `Control.Lens.Indexed` is not something you'd think of when writing
+   a filepath operation, but the `import Nihongo.Prelude` open form
+   pulls it in. Local `qualified` imports of `System.FilePath` are the
+   robust idiom; record this in the cross-plan Surprises so EP-5
+   inherits it.
+
+2. For commands that depend on environment that the harness cannot
+   provide (in this case: a Kitty-graphics-capable terminal), validate
+   the *output shape* with `cat -A` and treat the visual confirmation
+   as a separate user-driven step. EP-5's `kanji show` validation
+   should follow the same approach: assert the textual stroke output
+   programmatically, document the image step, and ask the user to
+   confirm visually.
+
+3. EP-5 will compose `detectImageCapabilityWithOverride <no-images>`
+   with `displaySvg cap label svgPath` after printing the textual
+   stroke order. The interfaces line up — no adapter layer needed.
 
 
 ## Context and Orientation

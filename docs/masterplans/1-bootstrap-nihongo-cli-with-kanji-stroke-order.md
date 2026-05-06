@@ -128,7 +128,7 @@ dependency; EP-2/3/4 fan out from it and merge again at EP-5).
 | 1 | Establish nihongo CLI foundations | docs/plans/1-establish-nihongo-cli-foundations.md | None | None | Complete |
 | 2 | Add KanjiVG submodule and lookup | docs/plans/2-add-kanjivg-submodule-and-lookup.md | EP-1 | None | Complete |
 | 3 | Parse KanjiVG stroke order metadata | docs/plans/3-parse-kanjivg-stroke-order-metadata.md | EP-1 | EP-2 | Complete |
-| 4 | Render images in the terminal via Kitty graphics | docs/plans/4-render-images-in-the-terminal-via-kitty-graphics.md | EP-1 | None | In Progress |
+| 4 | Render images in the terminal via Kitty graphics | docs/plans/4-render-images-in-the-terminal-via-kitty-graphics.md | EP-1 | None | Complete |
 | 5 | Implement kanji show command | docs/plans/5-implement-kanji-show-command.md | EP-1, EP-2, EP-3, EP-4 | None | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -229,8 +229,8 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-3: Implement `Nihongo.Kanji.StrokeOrder` SVG parser with `xml-conduit`. (2026-05-05; corrected the kvg-namespace match shape — see Surprises below)
 - [x] EP-3: Build the CJK Stroke type → English description table. (2026-05-05)
 - [x] EP-3: Add fixture-based tests covering 漢, あ, and one variant-only edge. (2026-05-05; 8 examples, 0 failures via `cabal test all`)
-- [ ] EP-4: Implement `Nihongo.Terminal.Image` (capability detection, Kitty emitter, tmux passthrough, fallback).
-- [ ] EP-4: Implement SVG → PNG rasterization via `rsvg-convert` with content-hash caching under `~/.cache/nihongo/strokes/`.
+- [x] EP-4: Implement `Nihongo.Terminal.Image` (capability detection, Kitty emitter, tmux passthrough, fallback). (2026-05-05; tmux-probe path returns `KittyGraphics` for outer `WezTerm`/`ghostty`/`kitty`; emitter wraps `\\e_Ga=T,f=100,t=f,r=12;<base64-path>` in tmux DCS passthrough when `TMUX` is set.)
+- [x] EP-4: Implement SVG → PNG rasterization via `rsvg-convert` with content-hash caching under `~/.cache/nihongo/strokes/`. (2026-05-05; first call rasterises 109×109 RGBA PNG, second call hits cache.)
 - [ ] EP-5: Add `kanji show` subcommand with stdin fallback, output/image/source option groups.
 - [ ] EP-5: Add `help/kanji-show.md` topic via `file-embed` and register it in the help registry.
 - [ ] EP-5: End-to-end manual verification with 漢 in a Kitty-capable terminal and inside `tmux`.
@@ -311,6 +311,24 @@ interactions between child plans. Provide concise evidence.
   EP-3's parser was corrected to match by prefix only. EP-5 must use
   the same prefix-only shape if it ever inspects KanjiVG attributes
   directly. Recorded in EP-3's Surprises and Decision Log.
+
+- **`Nihongo.Prelude` re-exports `Control.Lens.Indexed.<.>`, which
+  collides with `System.FilePath.<.>`.** Discovered while writing
+  EP-4's `Nihongo.Terminal.Image`. The robust local fix is
+  `import System.FilePath qualified as FP` and use `FP.</>` / `FP.<.>`
+  at call sites, *not* hiding `<.>` from the prelude (which would
+  break lens consumers). EP-5 should follow the same idiom for any
+  filepath operations.
+
+- **Visual rendering of inline images cannot be self-verified by an
+  agent harness running headlessly inside tmux.** `Nihongo.Terminal.Image`
+  emits the spec-shaped tmux-wrapped Kitty graphics escape, verified by
+  `cat -A` (`\\ePtmux;\\e\\e_Ga=T,f=100,t=f,r=12;<base64-path>\\e\\\\`),
+  but whether the user's outer terminal actually paints the kanji
+  depends on the terminal supporting Kitty graphics *and* tmux
+  passthrough being enabled (`set -g allow-passthrough on`). EP-5's
+  end-to-end manual verification milestone has to be performed by the
+  user, not by the implementing agent.
 
 
 ## Decision Log

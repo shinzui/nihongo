@@ -13,6 +13,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Options.Applicative
 
+import Nihongo.Cli.Commands.ImageDebug qualified as ImageDebug
 import Nihongo.Cli.Commands.KanjiDebug qualified as KanjiDebug
 import Nihongo.Cli.Completions qualified as Completions
 import Nihongo.Cli.Help qualified as Help
@@ -25,6 +26,7 @@ data Command
   | CmdHelp !Help.HelpCommand
   | CmdCompletions !Completions.CompletionsShell
   | CmdKanjiDebug !KanjiDebug.KanjiDebugCommand
+  | CmdImageDebug !ImageDebug.ImageDebugCommand
   deriving stock (Generic, Show, Eq)
 
 runCli :: IO ()
@@ -78,6 +80,12 @@ hiddenCommands =
               (CmdKanjiDebug <$> KanjiDebug.kanjiDebugParser)
               (progDesc "(internal) Resolve the KanjiVG SVG path for a character")
           )
+        <> command
+          "image-debug-render"
+          ( info
+              (CmdImageDebug <$> ImageDebug.imageDebugParser)
+              (progDesc "(internal) Render an SVG inline via Kitty graphics")
+          )
     )
 
 helloParser :: Parser Command
@@ -92,3 +100,4 @@ runCommand (CmdHello mName) = do
 runCommand (CmdHelp hc) = Help.runHelpCommand hc
 runCommand (CmdCompletions sh) = Completions.runCompletionsCommand sh
 runCommand (CmdKanjiDebug kc) = KanjiDebug.runKanjiDebug kc
+runCommand (CmdImageDebug ic) = ImageDebug.runImageDebug ic

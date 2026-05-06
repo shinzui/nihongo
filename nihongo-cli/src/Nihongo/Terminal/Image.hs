@@ -9,6 +9,7 @@ module Nihongo.Terminal.Image
   , detectImageCapabilityWithOverride
   , displayImage
   , ensurePng
+  , displaySvg
   ) where
 
 import Control.Exception (IOException, try)
@@ -19,6 +20,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Char8 qualified as BS8
 import Data.Text qualified as Text
+import Data.Text.IO qualified as TIO
 import System.Directory (createDirectoryIfMissing, doesFileExist, getHomeDirectory)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
@@ -28,6 +30,7 @@ import System.Process (readProcess, readProcessWithExitCode)
 import Text.Printf (printf)
 
 import Nihongo.Prelude
+import Nihongo.Pretty qualified as Pretty
 
 data ImageCapability
   = KittyGraphics
@@ -142,6 +145,23 @@ rasterise svgPath pngPath = do
     Right (ExitSuccess, _, _) -> pure (Right pngPath)
     Right (ExitFailure n, _, e) ->
       pure (Left ("rsvg-convert exit " <> Text.pack (show n) <> ": " <> Text.pack e))
+
+-- | High-level entry point. Given a capability decision, a label (used
+--   for the fallback placeholder), and an SVG file path, do the right
+--   thing: under 'KittyGraphics', rasterise + display; otherwise print
+--   a dim @[Image: <label>]@ placeholder. Rasterisation failures (e.g.
+--   @rsvg-convert@ missing on @PATH@) print a stderr warning and fall
+--   back to the placeholder rather than aborting the program.
+displaySvg :: ImageCapability -> Text -> FilePath -> IO ()
+displaySvg NoImageSupport label _ =
+  TIO.putStrLn (Pretty.dim ("[Image: " <> label <> "]"))
+displaySvg KittyGraphics label svgPath = do
+  ensured <- ensurePng svgPath
+  case ensured of
+    Left err -> do
+      TIO.hPutStrLn IO.stderr ("warning: " <> err)
+      TIO.putStrLn (Pretty.dim ("[Image: " <> label <> "]"))
+    Right png -> displayImage png
 
 -- | Run @tmux show-environment -g <var>@ and pull the value out. Swallows
 --   any 'IOException' (so callers still work if @tmux@ is missing or the
