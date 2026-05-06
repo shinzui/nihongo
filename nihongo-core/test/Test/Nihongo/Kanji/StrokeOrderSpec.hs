@@ -3,10 +3,9 @@
 module Test.Nihongo.Kanji.StrokeOrderSpec (spec) where
 
 import Data.Text.IO qualified as TIO
-import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
-
 import Nihongo.Kanji.StrokeOrder
 import Nihongo.Kanji.StrokeType (StrokeType (..))
+import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
 spec :: Spec
 spec = describe "Nihongo.Kanji.StrokeOrder" $ do

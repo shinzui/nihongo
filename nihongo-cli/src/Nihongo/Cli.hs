@@ -5,20 +5,20 @@
 --   auto-detection), `help` (topic browser with width-aware wrapping), and
 --   `completions` (shell completion script generator).
 module Nihongo.Cli
-  ( runCli
-  ) where
+  ( runCli,
+  )
+where
 
 import Data.Foldable (traverse_)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
-import Options.Applicative
-
 import Nihongo.Cli.Commands.Kanji qualified as Kanji
 import Nihongo.Cli.Completions qualified as Completions
 import Nihongo.Cli.Help qualified as Help
 import Nihongo.Cli.Stdin qualified as Stdin
 import Nihongo.Cli.Version (versionInfoOption)
 import Nihongo.Prelude
+import Options.Applicative
 
 data Command
   = CmdHello !(Maybe Text)

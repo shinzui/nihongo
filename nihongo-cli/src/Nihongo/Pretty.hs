@@ -5,11 +5,12 @@
 --   output (e.g. when stdout is not a TTY) must check that themselves;
 --   these helpers always emit the escape codes.
 module Nihongo.Pretty
-  ( Color (..)
-  , dim
-  , bold
-  , colored
-  ) where
+  ( Color (..),
+    dim,
+    bold,
+    colored,
+  )
+where
 
 import Nihongo.Prelude
 

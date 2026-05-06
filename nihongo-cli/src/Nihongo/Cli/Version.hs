@@ -10,20 +10,20 @@
 --   `-DGIT_HASH=...` supplied by the flake. When neither is available the
 --   bare cabal version is reported.
 module Nihongo.Cli.Version
-  ( appVersion
-  , appVersionWithGit
-  , gitCommitShort
-  , versionInfoOption
-  ) where
+  ( appVersion,
+    appVersionWithGit,
+    gitCommitShort,
+    versionInfoOption,
+  )
+where
 
 import Data.Text (pack)
 import Data.Text qualified as Text
 import Data.Version (showVersion)
 import GitHash (GitInfo, giHash, tGitInfoCwdTry)
+import Nihongo.Prelude
 import Options.Applicative
 import Paths_nihongo_cli (version)
-
-import Nihongo.Prelude
 
 appVersion :: Text
 appVersion = pack (showVersion version)

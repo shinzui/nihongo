@@ -3,22 +3,22 @@
 --   find@) will extend the 'KanjiCommand' ADT and the 'kanjiParser'
 --   block.
 module Nihongo.Cli.Commands.Kanji
-  ( KanjiCommand (..)
-  , kanjiParser
-  , runKanji
-  ) where
-
-import Options.Applicative
-  ( Parser
-  , command
-  , hsubparser
-  , info
-  , progDesc
+  ( KanjiCommand (..),
+    kanjiParser,
+    runKanji,
   )
+where
 
 import Nihongo.Cli.Commands.Kanji.Png qualified as Png
 import Nihongo.Cli.Commands.Kanji.Show qualified as Show
 import Nihongo.Prelude ()
+import Options.Applicative
+  ( Parser,
+    command,
+    hsubparser,
+    info,
+    progDesc,
+  )
 
 data KanjiCommand
   = KShow !Show.ShowCommand

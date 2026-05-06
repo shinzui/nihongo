@@ -10,15 +10,15 @@
 --   non-empty lines all start with two spaces are treated as verbatim and
 --   emitted unchanged. Other paragraphs are greedy-packed within the width.
 module Nihongo.Cli.Width
-  ( resolveWidth
-  , wrapText
-  ) where
+  ( resolveWidth,
+    wrapText,
+  )
+where
 
 import Data.Text qualified as Text
+import Nihongo.Prelude
 import System.Console.Terminal.Size (Window (..), size)
 import System.IO (hIsTerminalDevice, stdout)
-
-import Nihongo.Prelude
 
 -- | Cap auto-detected width at this many columns for readability.
 maxAutoWidth :: Int

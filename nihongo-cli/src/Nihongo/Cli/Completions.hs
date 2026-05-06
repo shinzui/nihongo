@@ -6,15 +6,15 @@
 --   script-generator helpers directly here, so this module does not need to
 --   know about the parser tree at all.
 module Nihongo.Cli.Completions
-  ( CompletionsShell (..)
-  , completionsCommandParser
-  , runCompletionsCommand
-  ) where
+  ( CompletionsShell (..),
+    completionsCommandParser,
+    runCompletionsCommand,
+  )
+where
 
 import Data.Text.IO qualified as TIO
-import Options.Applicative
-
 import Nihongo.Prelude ()
+import Options.Applicative
 
 data CompletionsShell = Bash | Zsh | Fish
   deriving stock (Show, Eq)

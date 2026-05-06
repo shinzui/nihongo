@@ -4,19 +4,19 @@
 --   (`--kanjivg-dir`-style), `NIHONGO_KANJIVG_DIR` env var, then
 --   `<cwd>/data/kanjivg`.
 module Nihongo.Kanji.KanjiVg
-  ( KanjiVgRoot (..)
-  , defaultKanjiVgRoot
-  , resolveKanjiVgRoot
-  , findStrokeSvg
-  ) where
+  ( KanjiVgRoot (..),
+    defaultKanjiVgRoot,
+    resolveKanjiVgRoot,
+    findStrokeSvg,
+  )
+where
 
 import Data.Text qualified as Text
+import Nihongo.Kanji (Kanji, kanjiCodepointHex)
+import Nihongo.Prelude ()
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>))
-
-import Nihongo.Kanji (Kanji, kanjiCodepointHex)
-import Nihongo.Prelude ()
 
 -- | Absolute filesystem path to the KanjiVG checkout. Must contain a
 --   @kanji/@ subdirectory of @<5-hex>.svg@ files.
@@ -37,11 +37,11 @@ resolveKanjiVgRoot override = do
   let candidates =
         [ p
         | Just p <-
-            [ override
-            , mEnv
-            , Just (cwd </> "data" </> "kanjivg")
-            ]
-        , not (null p)
+            [ override,
+              mEnv,
+              Just (cwd </> "data" </> "kanjivg")
+            ],
+          not (null p)
         ]
   pickFirstExisting candidates
   where
@@ -62,12 +62,12 @@ defaultKanjiVgRoot = do
   where
     msg =
       unlines
-        [ "Could not find the KanjiVG corpus."
-        , "Tried, in order:"
-        , "  1. NIHONGO_KANJIVG_DIR env var"
-        , "  2. ./data/kanjivg (relative to current working directory)"
-        , "Run `git submodule update --init data/kanjivg` from the project root,"
-        , "or set NIHONGO_KANJIVG_DIR to point at a KanjiVG checkout."
+        [ "Could not find the KanjiVG corpus.",
+          "Tried, in order:",
+          "  1. NIHONGO_KANJIVG_DIR env var",
+          "  2. ./data/kanjivg (relative to current working directory)",
+          "Run `git submodule update --init data/kanjivg` from the project root,",
+          "or set NIHONGO_KANJIVG_DIR to point at a KanjiVG checkout."
         ]
 
 -- | Look up the SVG path for a 'Kanji'. Returns 'Nothing' if the file is

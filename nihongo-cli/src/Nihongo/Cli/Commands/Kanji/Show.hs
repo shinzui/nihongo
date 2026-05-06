@@ -6,46 +6,46 @@
 --   order, and (in a Kitty-graphics-capable terminal) follows it with
 --   an inline image of the kanji.
 module Nihongo.Cli.Commands.Kanji.Show
-  ( ShowCommand (..)
-  , OutputFormat (..)
-  , showParser
-  , runShow
-  ) where
+  ( ShowCommand (..),
+    OutputFormat (..),
+    showParser,
+    runShow,
+  )
+where
 
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
-import Options.Applicative
-  ( Parser
-  , argument
-  , help
-  , long
-  , maybeReader
-  , metavar
-  , option
-  , optional
-  , parserOptionGroup
-  , showDefaultWith
-  , str
-  , strOption
-  , switch
-  , value
-  )
-import System.Exit (exitFailure)
-import System.IO qualified as IO
-
 import Nihongo.Cli.Stdin qualified as Stdin
 import Nihongo.Kanji (Kanji, KanjiError (..), kanjiCodepointHex, mkKanji, unKanji)
 import Nihongo.Kanji.KanjiVg (findStrokeSvg, resolveKanjiVgRoot)
 import Nihongo.Kanji.StrokeOrder
-  ( ParseError
-  , Stroke (..)
-  , StrokeOrderInfo (..)
-  , parseStrokeOrderFile
+  ( ParseError,
+    Stroke (..),
+    StrokeOrderInfo (..),
+    parseStrokeOrderFile,
   )
 import Nihongo.Kanji.StrokeType (StrokeType (..), describeStrokeType)
 import Nihongo.Prelude
 import Nihongo.Pretty qualified as Pretty
 import Nihongo.Terminal.Image qualified as Image
+import Options.Applicative
+  ( Parser,
+    argument,
+    help,
+    long,
+    maybeReader,
+    metavar,
+    option,
+    optional,
+    parserOptionGroup,
+    showDefaultWith,
+    str,
+    strOption,
+    switch,
+    value,
+  )
+import System.Exit (exitFailure)
+import System.IO qualified as IO
 
 data OutputFormat
   = FormatText
@@ -54,10 +54,10 @@ data OutputFormat
   deriving stock (Eq, Show)
 
 data ShowCommand = ShowCommand
-  { showInput :: !(Maybe Text)
-  , showFormat :: !OutputFormat
-  , showNoImages :: !Bool
-  , showKanjivgDir :: !(Maybe FilePath)
+  { showInput :: !(Maybe Text),
+    showFormat :: !OutputFormat,
+    showNoImages :: !Bool,
+    showKanjivgDir :: !(Maybe FilePath)
   }
   deriving stock (Show, Eq)
 

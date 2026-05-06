@@ -2,18 +2,18 @@
 --   characters in the CJK Unified Ideographs (and Ext A) blocks plus the
 --   Hiragana and Katakana blocks. KanjiVG covers all of those.
 module Nihongo.Kanji
-  ( Kanji
-  , unKanji
-  , mkKanji
-  , kanjiCodepointHex
-  , KanjiError (..)
-  ) where
+  ( Kanji,
+    unKanji,
+    mkKanji,
+    kanjiCodepointHex,
+    KanjiError (..),
+  )
+where
 
 import Data.Char (ord)
 import Data.Text qualified as Text
-import Numeric (showHex)
-
 import Nihongo.Prelude
+import Numeric (showHex)
 
 newtype Kanji = Kanji {unKanji :: Char}
   deriving stock (Eq, Show)

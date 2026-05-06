@@ -63,6 +63,7 @@ test-suite nihongo-core-tests
   hs-source-dirs: test
   other-modules:
     Test.Nihongo.Kanji.StrokeOrderSpec
+
   build-depends:
     base >=4.20 && <5,
     hspec ^>=2.11,

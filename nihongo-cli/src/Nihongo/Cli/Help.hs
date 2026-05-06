@@ -14,36 +14,36 @@
 --   This avoids the "Missing TOPIC" parser-shape trap when running
 --   `nihongo help --width 60`. See haskell-jitsurei/cli/help-width.md.
 module Nihongo.Cli.Help
-  ( HelpTopic (..)
-  , HelpCommand (..)
-  , helpTopics
-  , helpCommandParser
-  , runHelpCommand
-  ) where
+  ( HelpTopic (..),
+    HelpCommand (..),
+    helpTopics,
+    helpCommandParser,
+    runHelpCommand,
+  )
+where
 
 import Data.FileEmbed (embedStringFile)
 import Data.Foldable (for_)
 import Data.List qualified as List
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
-import Options.Applicative
-
 import Nihongo.Cli.Width (resolveWidth, wrapText)
 import Nihongo.Prelude
+import Options.Applicative
 
 data HelpTopic = HelpTopic
-  { topicName :: !Text
-  , topicDescription :: !Text
-  , topicContent :: !Text
+  { topicName :: !Text,
+    topicDescription :: !Text,
+    topicContent :: !Text
   }
   deriving stock (Generic, Show, Eq)
 
 helpTopics :: [HelpTopic]
 helpTopics =
-  [ HelpTopic "about" "Project overview" $(embedStringFile "help/about.md")
-  , HelpTopic "kanji-png" "kanji png command reference" $(embedStringFile "help/kanji-png.md")
-  , HelpTopic "kanji-show" "kanji show command reference" $(embedStringFile "help/kanji-show.md")
-  , HelpTopic "width-demo" "Width-handling fixture topic" $(embedStringFile "help/width-demo.md")
+  [ HelpTopic "about" "Project overview" $(embedStringFile "help/about.md"),
+    HelpTopic "kanji-png" "kanji png command reference" $(embedStringFile "help/kanji-png.md"),
+    HelpTopic "kanji-show" "kanji show command reference" $(embedStringFile "help/kanji-show.md"),
+    HelpTopic "width-demo" "Width-handling fixture topic" $(embedStringFile "help/width-demo.md")
   ]
 
 data HelpCommand

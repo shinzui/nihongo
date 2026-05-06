@@ -5,15 +5,15 @@
 --   if stdin is piped, otherwise `Nothing`. Use `Data.Text.IO.getContents` to
 --   avoid the locale-decoding problems of `pack <$> hGetContents stdin`.
 module Nihongo.Cli.Stdin
-  ( isStdinPiped
-  , getTextInput
-  ) where
+  ( isStdinPiped,
+    getTextInput,
+  )
+where
 
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
-import System.IO (hIsTerminalDevice, stdin)
-
 import Nihongo.Prelude
+import System.IO (hIsTerminalDevice, stdin)
 
 isStdinPiped :: IO Bool
 isStdinPiped = not <$> hIsTerminalDevice stdin

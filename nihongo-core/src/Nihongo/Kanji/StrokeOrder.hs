@@ -7,14 +7,15 @@
 --   data-extraction layer. EP-5 composes 'parseStrokeOrderFile' with the
 --   KanjiVG lookup from "Nihongo.Kanji.KanjiVg" to drive @kanji show@.
 module Nihongo.Kanji.StrokeOrder
-  ( StrokeOrderInfo (..)
-  , Stroke (..)
-  , Component (..)
-  , ComponentTree (..)
-  , ParseError (..)
-  , parseStrokeOrderText
-  , parseStrokeOrderFile
-  ) where
+  ( StrokeOrderInfo (..),
+    Stroke (..),
+    Component (..),
+    ComponentTree (..),
+    ParseError (..),
+    parseStrokeOrderText,
+    parseStrokeOrderFile,
+  )
+where
 
 import Control.Monad ((<=<))
 import Data.ByteString.Lazy qualified as LBS
@@ -23,33 +24,32 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TE
+import Nihongo.Kanji.StrokeType (StrokeType, parseStrokeType)
+import Nihongo.Prelude
 import Text.Read (readMaybe)
 import Text.XML
-  ( Document
-  , Element (..)
-  , Name (..)
-  , Node (..)
-  , def
-  , documentRoot
-  , parseLBS
-  , psDecodeEntities
+  ( Document,
+    Element (..),
+    Name (..),
+    Node (..),
+    def,
+    documentRoot,
+    parseLBS,
+    psDecodeEntities,
   )
 import Text.XML.Stream.Parse (decodeHtmlEntities)
 
-import Nihongo.Kanji.StrokeType (StrokeType, parseStrokeType)
-import Nihongo.Prelude
-
 data StrokeOrderInfo = StrokeOrderInfo
-  { strokes :: ![Stroke]
-  , componentTree :: !ComponentTree
+  { strokes :: ![Stroke],
+    componentTree :: !ComponentTree
   }
   deriving stock (Eq, Show, Generic)
 
 data Stroke = Stroke
-  { strokeIndex :: !Int
-  , strokeRawType :: !(Maybe Text)
-  , strokeType :: !(Maybe StrokeType)
-  , strokePathD :: !Text
+  { strokeIndex :: !Int,
+    strokeRawType :: !(Maybe Text),
+    strokeType :: !(Maybe StrokeType),
+    strokePathD :: !Text
   }
   deriving stock (Eq, Show, Generic)
 
@@ -59,13 +59,13 @@ newtype ComponentTree = ComponentTree
   deriving stock (Eq, Show, Generic)
 
 data Component = Component
-  { compElement :: !(Maybe Text)
-  , compOriginal :: !(Maybe Text)
-  , compPosition :: !(Maybe Text)
-  , compRadical :: !(Maybe Text)
-  , compPhonetic :: !(Maybe Text)
-  , compChildren :: ![Component]
-  , compStrokes :: ![Int]
+  { compElement :: !(Maybe Text),
+    compOriginal :: !(Maybe Text),
+    compPosition :: !(Maybe Text),
+    compRadical :: !(Maybe Text),
+    compPhonetic :: !(Maybe Text),
+    compChildren :: ![Component],
+    compStrokes :: ![Int]
   }
   deriving stock (Eq, Show, Generic)
 
@@ -152,10 +152,10 @@ toStroke e = do
       dval = maybe "" id (Map.lookup (plainAttr "d") attrs)
   pure
     Stroke
-      { strokeIndex = idx
-      , strokeRawType = raw
-      , strokeType = raw >>= parseStrokeType
-      , strokePathD = dval
+      { strokeIndex = idx,
+        strokeRawType = raw,
+        strokeType = raw >>= parseStrokeType,
+        strokePathD = dval
       }
 
 -- | Parse @"kvg:<cp>-s<N>"@ → @N@.
@@ -181,13 +181,13 @@ toComponent el =
       gKids = filter isG (childElements el)
       pKids = filter isPath (childElements el)
    in Component
-        { compElement = Map.lookup (kvgAttr "element") attrs
-        , compOriginal = Map.lookup (kvgAttr "original") attrs
-        , compPosition = Map.lookup (kvgAttr "position") attrs
-        , compRadical = Map.lookup (kvgAttr "radical") attrs
-        , compPhonetic = Map.lookup (kvgAttr "phon") attrs
-        , compChildren = map toComponent gKids
-        , compStrokes = mapMaybe (parseStrokeIndex <=< idAttr) pKids
+        { compElement = Map.lookup (kvgAttr "element") attrs,
+          compOriginal = Map.lookup (kvgAttr "original") attrs,
+          compPosition = Map.lookup (kvgAttr "position") attrs,
+          compRadical = Map.lookup (kvgAttr "radical") attrs,
+          compPhonetic = Map.lookup (kvgAttr "phon") attrs,
+          compChildren = map toComponent gKids,
+          compStrokes = mapMaybe (parseStrokeIndex <=< idAttr) pKids
         }
   where
     idAttr e = Map.lookup (plainAttr "id") (elementAttributes e)

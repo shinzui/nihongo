@@ -4,39 +4,39 @@
 --   Designed to be safe in shell substitution: stdout carries only the
 --   path on success, and is left empty on any error.
 module Nihongo.Cli.Commands.Kanji.Png
-  ( PngCommand (..)
-  , pngParser
-  , runPng
-  ) where
+  ( PngCommand (..),
+    pngParser,
+    runPng,
+  )
+where
 
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
+import Nihongo.Cli.Stdin qualified as Stdin
+import Nihongo.Kanji (Kanji, KanjiError (..), mkKanji)
+import Nihongo.Kanji.Png
+  ( KanjiPngOptions (..),
+    kanjiPngPath,
+    renderKanjiPngError,
+  )
+import Nihongo.Prelude
 import Options.Applicative
-  ( Parser
-  , argument
-  , help
-  , long
-  , metavar
-  , optional
-  , parserOptionGroup
-  , str
-  , strOption
+  ( Parser,
+    argument,
+    help,
+    long,
+    metavar,
+    optional,
+    parserOptionGroup,
+    str,
+    strOption,
   )
 import System.Exit (exitFailure)
 import System.IO qualified as IO
 
-import Nihongo.Cli.Stdin qualified as Stdin
-import Nihongo.Kanji (Kanji, KanjiError (..), mkKanji)
-import Nihongo.Kanji.Png
-  ( KanjiPngOptions (..)
-  , kanjiPngPath
-  , renderKanjiPngError
-  )
-import Nihongo.Prelude
-
 data PngCommand = PngCommand
-  { pngInput :: !(Maybe Text)
-  , pngKanjivgDir :: !(Maybe FilePath)
+  { pngInput :: !(Maybe Text),
+    pngKanjivgDir :: !(Maybe FilePath)
   }
   deriving stock (Show, Eq)
 

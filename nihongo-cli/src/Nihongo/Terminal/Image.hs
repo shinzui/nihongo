@@ -4,13 +4,14 @@
 --   inside tmux. Subsequent milestones add the Kitty emitter, the SVG →
 --   PNG rasterisation step, and the high-level @displaySvg@ orchestrator.
 module Nihongo.Terminal.Image
-  ( ImageCapability (..)
-  , detectImageCapability
-  , detectImageCapabilityWithOverride
-  , displayImage
-  , ensurePng
-  , displaySvg
-  ) where
+  ( ImageCapability (..),
+    detectImageCapability,
+    detectImageCapabilityWithOverride,
+    displayImage,
+    ensurePng,
+    displaySvg,
+  )
+where
 
 import Control.Exception (IOException, try)
 import Control.Monad (replicateM_)
@@ -21,6 +22,8 @@ import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Char8 qualified as BS8
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
+import Nihongo.Prelude
+import Nihongo.Pretty qualified as Pretty
 import System.Directory (createDirectoryIfMissing, doesFileExist, getHomeDirectory)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
@@ -28,9 +31,6 @@ import System.FilePath qualified as FP
 import System.IO qualified as IO
 import System.Process (readProcess, readProcessWithExitCode)
 import Text.Printf (printf)
-
-import Nihongo.Prelude
-import Nihongo.Pretty qualified as Pretty
 
 data ImageCapability
   = KittyGraphics
@@ -203,13 +203,13 @@ rasterise svgPath pngPath = do
     try
       ( readProcessWithExitCode
           "rsvg-convert"
-          [ "--format=png"
-          , "--width"
-          , show rasteriseWidthPx
-          , "--keep-aspect-ratio"
-          , "--output"
-          , pngPath
-          , svgPath
+          [ "--format=png",
+            "--width",
+            show rasteriseWidthPx,
+            "--keep-aspect-ratio",
+            "--output",
+            pngPath,
+            svgPath
           ]
           ""
       ) ::

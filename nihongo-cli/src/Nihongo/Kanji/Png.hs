@@ -6,15 +6,15 @@
 --   inline-image renderer used by @nihongo kanji show@, so consumers
 --   benefit from cross-command cache hits.
 module Nihongo.Kanji.Png
-  ( KanjiPngOptions (..)
-  , defaultKanjiPngOptions
-  , KanjiPngError (..)
-  , renderKanjiPngError
-  , kanjiPngPath
-  ) where
+  ( KanjiPngOptions (..),
+    defaultKanjiPngOptions,
+    KanjiPngError (..),
+    renderKanjiPngError,
+    kanjiPngPath,
+  )
+where
 
 import Data.Text qualified as Text
-
 import Nihongo.Kanji (Kanji, unKanji)
 import Nihongo.Kanji.KanjiVg (findStrokeSvg, resolveKanjiVgRoot)
 import Nihongo.Prelude
