@@ -62,10 +62,10 @@ even if it requires splitting a partially completed task into two ("done" vs. "r
 This section must always reflect the actual current state of the work.
 
 - [x] Milestone A — 2026-05-06: Added `parseKanjis :: Text -> Either KanjiParseError (NonEmpty Kanji)`, `KanjiParseError`, and `renderKanjiParseError` to `Nihongo.Kanji` (file: `nihongo-core/src/Nihongo/Kanji.hs`). Whitespace stripped via `Text.filter (not . isSpace)`; first non-Japanese character returns `KpeNotJapanese`; empty/all-whitespace returns `KpeEmpty`. Builds clean under `-Wall`; `cabal test nihongo-core` still passes (8/8).
-- [ ] Milestone B: Wire `parseKanjis` into `Nihongo.Cli.Commands.Kanji.Show.runShow` (file: `nihongo-cli/src/Nihongo/Cli/Commands/Kanji/Show.hs`). Replace the single-`Kanji` pipeline with a `traverse_`-style loop that prints one section per kanji separated by a blank line. The KanjiVG root and image-capability detection happen once outside the loop.
-- [ ] Milestone C: Decide and implement per-character missing-SVG behaviour. Default: print the header line and a single `(no KanjiVG entry)` body line for that character, continue with the rest of the word, and exit non-zero only if **every** character lacked an entry. Record decision in the Decision Log.
-- [ ] Milestone D: Update `nihongo-cli/help/kanji-show.md` to document the multi-character behaviour, the partial-success policy, and the unchanged single-character contract.
-- [ ] Milestone E: Verify by running every invocation listed in *Validation and Acceptance* against `cabal run nihongo --` and pasting transcripts (header lines + first stroke line + section separators) into Outcomes & Retrospective.
+- [x] Milestone B — 2026-05-06: Replaced `readSingleKanji` with `parseKanjis` + a per-character loop in `Nihongo.Cli.Commands.Kanji.Show`. `resolveKanjiVgRoot` and `detectImageCapabilityWithOverride` lifted outside the loop. Single-character stdout is byte-identical to baseline (verified with `diff` for both `漢` and `一`). Multi-char (`漢字`, piped `食べる`), strict ASCII rejection, empty input, and whitespace-only stdin all behave as designed.
+- [x] Milestone C — 2026-05-06: Per-character missing-SVG behaviour implemented in `renderOne`/`renderMissingHeader`: print `<glyph> (U+<hex>, ? strokes)` then `(no KanjiVG entry)`, continue with the rest of the word, and exit non-zero only when every character was a miss. Verified against U+3401 `㐁` (in CJK Ext-A, accepted by `mkKanji`, absent from KanjiVG). Decision Log entry stands as authored.
+- [x] Milestone D — 2026-05-06: Updated `nihongo-cli/help/kanji-show.md` with a new lead, updated examples, and a "Words" subsection covering whitespace stripping, strict non-Japanese rejection, partial-miss reporting, and the per-character image-scroll caveat. Updated the parser `argument` `help` from "A single Japanese character." to "A Japanese character or word." (`metavar KANJI` retained per plan). `nihongo help kanji-show` and `nihongo kanji show --help` both reflect the new wording (had to nudge `Help.hs` whitespace to force TH re-embed; this is documented in the module header).
+- [x] Milestone E — 2026-05-06: Ran the Validation and Acceptance matrix. Cases 1–9, 11, 12 pass; case 10 (`--kanjivg-dir` with a sibling checkout) is logically covered by `resolveKanjiVgRoot` already being lifted out of the loop and applied uniformly, but no second checkout was set up. Transcripts pasted into Outcomes & Retrospective.
 
 
 ## Surprises & Discoveries
@@ -73,7 +73,39 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+**Chosen missing-SVG codepoint: U+3401 (`㐁`).** Scanning the Ext-A
+range starting at U+3401 found this codepoint missing from the
+KanjiVG corpus shipped at `data/kanjivg/`. `mkKanji '㐁'` accepts it
+(U+3401 is in the CJK Ext-A block U+3400–U+4DBF), but
+`data/kanjivg/kanji/03401.svg` does not exist. Used for partial- and
+total-miss verification in Milestone C.
+
+Partial-miss transcript (`kanji show "㐁漢" --format text`, exit 0):
+
+    㐁 (U+3401, ? strokes)
+    (no KanjiVG entry)
+
+    漢 (U+6F22, 13 strokes)
+
+    1. dot  ㇔
+    2. dot  ㇔
+    ... 13 stroke lines ...
+    13. right-falling  ㇏
+
+Total-miss transcript (`kanji show "㐁" --format text`, exit 1):
+
+    㐁 (U+3401, ? strokes)
+    (no KanjiVG entry)
+
+**Text-mode inter-section spacing.** Between sections in `--format
+text` mode there are two blank lines: one trailing the existing
+`printOutput` for `FormatText`, one from the new `when (idx > 1)
+(TIO.putStrLn "")` separator. In `--format both` (the default)
+spacing is one blank line — the trailing image emits its own
+newlines instead of a blank text line. The double-blank in text
+mode is harmless and lets the single-character path stay
+byte-identical (since `idx == 1` skips the separator). Recording for
+visibility; the plan's prescribed pseudocode produces this directly.
 
 
 ## Decision Log
@@ -149,7 +181,102 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Outcome.** `nihongo kanji show` now accepts a single character, a
+multi-character word, or a mixed kanji/kana string. Each character
+renders an independent stroke-order section in input order, separated
+by a blank line. The single-character case is byte-identical to the
+pre-change output (verified with `diff` against pre-change captures
+of `漢` and `一`). Empty / whitespace-only / non-Japanese inputs
+abort with a clear error. KanjiVG misses are reported per character
+and only fail the command (exit 1) when *every* character was missing.
+
+**Validation transcripts.**
+
+Case 2 — `kanji show 漢字 --format text`:
+
+    漢 (U+6F22, 13 strokes)
+
+    1. dot  ㇔
+    2. dot  ㇔
+    3. rising  ㇀
+    4. horizontal  ㇐
+    5. vertical  ㇑
+    6. vertical  ㇑
+    7. vertical  ㇑
+    8. turn-down  ㇕
+    9. horizontal  ㇐
+    10. horizontal  ㇐
+    11. horizontal  ㇐
+    12. left-falling  ㇒
+    13. right-falling  ㇏
+
+
+    字 (U+5B57, 6 strokes)
+
+    1. vertical  ㇑
+    2. dot  ㇔
+    3. hook-up  ㇖
+    4. hook-up  ㇖
+    5. curve-down  ㇁
+    6. horizontal  ㇐
+
+Case 3 — `echo 食べる | kanji show --format text`:
+
+    食 (U+98DF, 9 strokes)
+    ... 9 stroke lines ...
+
+    べ (U+3079, 3 strokes)
+    1. (unknown)
+    2. (unknown)
+    3. (unknown)
+
+    る (U+308B, 1 strokes)
+    1. (unknown)
+
+Case 7 (partial miss, `kanji show "㐁漢" --format text`, exit 0): see
+*Surprises & Discoveries*.
+
+Case 8 (total miss, `kanji show "㐁" --format text`, exit 1): see
+*Surprises & Discoveries*.
+
+Case 9 part 2 — `kanji show 漢字 --format image --no-images`:
+
+    [Image: 漢]
+
+    [Image: 字]
+
+**Compared with the original purpose.** The plan's purpose section
+named the win directly: `nihongo kanji show 漢字` should print 漢
+then 字 in order with a blank-line separator, and the same for
+piped `食べる`. Both invocations now produce that output. All
+existing flags (`--format`, `--no-images`, `--kanjivg-dir`) keep
+their semantics, applied uniformly to every character. The
+single-character contract is preserved byte-for-byte.
+
+**Lessons / loose ends.**
+
+- The TH-embedded help file mechanism (`Data.FileEmbed.embedStringFile`
+  in `Nihongo.Cli.Help`) does not invalidate cabal's recompile cache
+  when the embedded `.md` changes. The module already documents this
+  ("you must `touch` this module or `cabal clean && cabal build all`")
+  but a content-changing nudge to `Help.hs` was needed to force a
+  rebuild — `touch` alone left cabal at "Up to date". A future
+  improvement would be to add a `qAddDependentFile` audit or a
+  small build-system check that flags the staleness.
+
+- Text-mode (`--format text`) prints two blank lines between
+  sections instead of one, because both the existing `printOutput`
+  and the new section-separator emit a blank line. This was the
+  trade-off for byte-identical single-character output and is
+  acceptable; tightening it would require trimming
+  `printOutput`'s trailing blank specifically when format is text
+  *and* idx < total, which adds complexity for marginal payoff.
+  Recorded in *Surprises & Discoveries*.
+
+- `kanji png` was deliberately left unchanged (Decision Log). When
+  the follow-up plan picks it up, the natural shape is one path
+  per line (or NUL-separated for shell-safety); a CLI flag
+  (`--null` or `--separator`) is probably needed.
 
 
 ## Context and Orientation
