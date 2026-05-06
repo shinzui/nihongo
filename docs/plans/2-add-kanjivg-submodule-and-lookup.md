@@ -62,8 +62,8 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone A: Add the KanjiVG git submodule at `data/kanjivg/` pinned to `r20250816`.
-- [ ] Milestone A: Document submodule clone instructions in `README.md`.
+- [x] Milestone A: Add the KanjiVG git submodule at `data/kanjivg/` pinned to `r20250816`. (2026-05-05)
+- [x] Milestone A: Document submodule clone instructions in `README.md`. (2026-05-05)
 - [ ] Milestone B: Implement `Nihongo.Kanji` (newtype + smart constructor + codepoint helpers).
 - [ ] Milestone C: Implement `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`).
 - [ ] Milestone D: Add the temporary `kanji-debug-path` subcommand to validate end-to-end and exercise root resolution.
@@ -75,7 +75,14 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- **Tag `r20250816` resolves to commit `bd13ffbcc9d85cb86ae98bbbf001d9069220b901`,
+  not `544d319f...`.** The plan's Decision Log mentioned `544d319f...`, but that
+  is the user's standalone clone's `master` HEAD at the time of writing — *not*
+  the commit the tag points at. Both clones agree the tag itself is `bd13ffbcc...`.
+  Evidence: `git -C data/kanjivg rev-list -n 1 r20250816` and the same query
+  against `/Users/shinzui/Keikaku/hub/kanjivg` both print `bd13ffbcc...`. EP-3
+  and EP-5 should reference the tag (`r20250816`) rather than the commit hash;
+  the tag is the stable identifier.
 
 
 ## Decision Log

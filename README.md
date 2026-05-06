@@ -36,6 +36,20 @@ cabal build all
 cabal run nihongo -- hello --name world
 ```
 
+## Data: KanjiVG submodule
+
+The KanjiVG SVG corpus (https://github.com/KanjiVG/kanjivg) is included as a git
+submodule at `data/kanjivg/`, pinned to release tag `r20250816`. After cloning
+the repository, run:
+
+```bash
+git submodule update --init --depth 1 data/kanjivg
+```
+
+KanjiVG is licensed under CC-BY-SA 3.0; the submodule keeps its license boundary
+distinct from this project. The corpus is roughly 78 MB; a `--depth 1` clone is
+plenty since we never read its history.
+
 ## License
 
 [BSD-3-Clause](./LICENSE) — (c) 2026 Nadeem Bitar.
