@@ -6,12 +6,10 @@ description:
   A terminal-first Japanese learning companion for studying kanji, vocabulary, readings, stroke order, and grammar directly from the command line, designed for fast, keyboard-driven workflows and daily practice.
 
 license: BSD-3-Clause
-license-file: ../LICENSE
 author: Nadeem Bitar
 maintainer: nadeem@gmail.com
 copyright: (c) 2026 Nadeem Bitar
 build-type: Simple
-extra-doc-files: ../CHANGELOG.md
 
 common common-options
   ghc-options:

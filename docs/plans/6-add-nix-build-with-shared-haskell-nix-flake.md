@@ -49,17 +49,18 @@ so future shared dependencies "just work".
 
 ## Progress
 
-- [ ] **Milestone A — Bump GHC version and add the shared `haskell-nix` flake input.**
-  - [ ] Edit `flake.nix`: change `ghcVersion` from `ghc912` to `ghc9122`.
-  - [ ] Edit `flake.nix`: add `inputs.haskell-nix.url = "github:shinzui/haskell-nix"` and the matching `pre-commit-hooks` and `treefmt-nix` inputs.
-  - [ ] Run `nix flake update haskell-nix pre-commit-hooks treefmt-nix` (or `nix flake lock --update-input ...`) so `flake.lock` records the new inputs.
-  - [ ] Verify `nix develop` still drops into a working shell (`ghc --version` reports 9.12.2; `cabal build all` succeeds inside the shell).
+- [x] **Milestone A — Bump GHC version and add the shared `haskell-nix` flake input.** (2026-05-06)
+  - [x] Edit `flake.nix`: change `ghcVersion` from `ghc912` to `ghc9122`.
+  - [x] Edit `flake.nix`: add `inputs.haskell-nix.url = "github:shinzui/haskell-nix"` and the matching `pre-commit-hooks` and `treefmt-nix` inputs.
+  - [x] Run `nix flake lock --update-input ...` so `flake.lock` records the new inputs. Locked: haskell-nix `4747cb8` (2026-04-24), pre-commit-hooks `3cfd774` (2026-04-21), treefmt-nix `790751f` (2026-04-08).
+  - [x] Verify `nix develop` still drops into a working shell. `ghc --version` → `9.12.2`; `cabal build all` → `Up to date`.
 
-- [ ] **Milestone B — Write `nix/haskell-overlay.nix` and wire `packages.nihongo` to a `callCabal2nix` build.**
-  - [ ] Create `nix/haskell-overlay.nix` defining `nihongo-core` and `nihongo-cli` via `final.callCabal2nix`, with `doJailbreak` and the `-DGIT_HASH=...` configure flag.
-  - [ ] Edit `flake.nix` `outputs`: build `haskellPackages` as `pkgs.haskell.packages.${ghcVersion}.override { overrides = composeExtensions (haskellExtension ...) (import ./nix/haskell-overlay.nix ...); }`.
-  - [ ] Edit `flake.nix`: replace `packages.default = haskellPackages.nihongo` with `packages.nihongo = haskellPackages.nihongo-cli; packages.default = haskellPackages.nihongo-cli`.
-  - [ ] Run `nix build .#nihongo` and `./result/bin/nihongo --version`; confirm the output includes a `(git: <sha>)` suffix from the `-DGIT_HASH` injection.
+- [x] **Milestone B — Write `nix/haskell-overlay.nix` and wire `packages.nihongo` to a `callCabal2nix` build.** (2026-05-06)
+  - [x] Create `nix/haskell-overlay.nix` defining `nihongo-core` and `nihongo-cli` via `final.callCabal2nix`, with `doJailbreak` and the `-DGIT_HASH=...` configure flag.
+  - [x] Edit `flake.nix` `outputs`: build `haskellPackages` as `pkgs.haskell.packages.${ghcVersion}.override { overrides = composeExtensions (haskellExtension ...) (import ./nix/haskell-overlay.nix ...); }`.
+  - [x] Edit `flake.nix`: replace `packages.default = haskellPackages.nihongo` with `packages.nihongo = haskellPackages.nihongo-cli; packages.default = haskellPackages.nihongo-cli`.
+  - [x] **Out-of-plan fix surfaced by the build:** drop `license-file: ../LICENSE` and `extra-doc-files: ../CHANGELOG.md` from both `nihongo-core.cabal` and `nihongo-cli.cabal`. See *Surprises & Discoveries* below.
+  - [x] Run `nix build .#nihongo` and `./result/bin/nihongo --version`; output is `nihongo 0.1.0.0 (git: dirty)` (working tree has uncommitted changes during the build, which is the documented `self.shortRev or "dirty"` fallback). `./result/bin/nihongo --help` prints the full subcommand list (hello, help, completions, kanji).
 
 - [ ] **Milestone C — Add the `treefmt` formatter, the formatting flake check, and the pre-commit hook check, mirroring seihou.**
   - [ ] Update `treefmt.nix` to take `{ pkgs, ghcVersion, ... }` so `fourmolu` and `cabal-gild` come from the GHC 9.12.2 package set.
@@ -72,7 +73,13 @@ so future shared dependencies "just work".
 Document unexpected behaviors, bugs, optimizations, or insights discovered
 during implementation. Provide concise evidence (short transcripts, diffs).
 
-(None yet.)
+**Cabal files referenced parent-directory paths that `callCabal2nix` cannot satisfy.** Both `nihongo-core/nihongo-core.cabal` and `nihongo-cli/nihongo-cli.cabal` carried `license-file: ../LICENSE` and `extra-doc-files: ../CHANGELOG.md`. `callCabal2nix` only copies the package directory into the build sandbox, so Cabal's preprocessor failed during the test-suite preparation step:
+
+    Preprocessing test suite 'nihongo-core-tests' for nihongo-core-0.1.0.0...
+    Error: [Cabal-6661]
+    filepath wildcard '../CHANGELOG.md' does not match any files.
+
+Fix was to drop both `../`-prefixed lines from both cabal files (mori-core/mori-cli use the same pattern: SPDX `license:` line, no `license-file`, no `extra-doc-files`). The `LICENSE` and `CHANGELOG.md` at the repo root remain for humans; cabal just no longer indexes them. The references were also a latent `cabal sdist` hazard — `cabal sdist` requires `extra-doc-files` to live inside the package directory.
 
 
 ## Decision Log
@@ -112,6 +119,15 @@ during implementation. Provide concise evidence (short transcripts, diffs).
   `message-db-hs`, `tan-commons`, `tan-effectful`, `typeid-hs`,
   `mori-schema`). nihongo likewise has none. Copying seihou's structure
   yields the shortest, least-surprising flake. **Date:** 2026-05-06.
+
+- **Decision:** Drop `license-file: ../LICENSE` and
+  `extra-doc-files: ../CHANGELOG.md` from `nihongo-core.cabal` and
+  `nihongo-cli.cabal` rather than copy those files into the sandbox via
+  `prePatch`. **Rationale:** mori-core/mori-cli show the cleaner pattern —
+  SPDX `license:` only, no `license-file:`, no `extra-doc-files:`. The
+  `../` references were both a nix-build blocker and a latent `cabal sdist`
+  hazard; copying via `prePatch` would mask the smell. The LICENSE and
+  CHANGELOG remain at the repo root for humans. **Date:** 2026-05-06.
 
 
 ## Outcomes & Retrospective

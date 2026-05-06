@@ -14,11 +14,20 @@
       let
         pkgs = import nixpkgs { inherit system; };
         ghcVersion = "ghc9122";
-        haskellPackages = pkgs.haskell.packages.${ghcVersion};
+        gitRev = self.shortRev or "dirty";
+
+        haskellPackages = pkgs.haskell.packages.${ghcVersion}.override {
+          overrides = pkgs.lib.composeExtensions
+            (inputs.haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
+            (import ./nix/haskell-overlay.nix {
+              inherit pkgs gitRev;
+            });
+        };
       in
       {
         packages = {
-          default = haskellPackages.nihongo;
+          nihongo = haskellPackages.nihongo-cli;
+          default = haskellPackages.nihongo-cli;
         };
 
         checks = {
@@ -32,7 +41,7 @@
             pkgs.pkg-config
             pkgs.librsvg
             pkgs.gitMinimal
-            (pkgs.haskell.packages.${ghcVersion}.ghcWithPackages (ps: [
+            (haskellPackages.ghcWithPackages (ps: [
               ps.haskell-language-server
             ]))
           ]
