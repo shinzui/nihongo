@@ -65,7 +65,7 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone A: Add the KanjiVG git submodule at `data/kanjivg/` pinned to `r20250816`. (2026-05-05)
 - [x] Milestone A: Document submodule clone instructions in `README.md`. (2026-05-05)
 - [x] Milestone B: Implement `Nihongo.Kanji` (newtype + smart constructor + codepoint helpers). (2026-05-05)
-- [ ] Milestone C: Implement `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`).
+- [x] Milestone C: Implement `Nihongo.Kanji.KanjiVg` (root resolution + `findStrokeSvg`). (2026-05-05)
 - [ ] Milestone D: Add the temporary `kanji-debug-path` subcommand to validate end-to-end and exercise root resolution.
 - [ ] Milestone D: Manual verification of all three lookup cases (kanji, kana, non-Japanese).
 
@@ -83,6 +83,23 @@ implementation. Provide concise evidence.
   against `/Users/shinzui/Keikaku/hub/kanjivg` both print `bd13ffbcc...`. EP-3
   and EP-5 should reference the tag (`r20250816`) rather than the commit hash;
   the tag is the stable identifier.
+
+- **`import Nihongo.Prelude` triggers `-Wunused-imports` in modules that only
+  use base-Prelude names.** EP-1's `Nihongo.Cli.Completions` already addresses
+  this with `import Nihongo.Prelude ()` (the empty-list "instances only" form).
+  `Nihongo.Kanji.KanjiVg` follows the same convention because it only uses
+  `IO`, `Maybe`, `pure`, `<>`, `not`, etc. — all from base. Cross-plan
+  guidance for EP-3/4/5: when a module uses no symbol re-exported by
+  `Nihongo.Prelude` (lens operators, `Text` unqualified, `Generic`, aeson
+  helpers, etc.), import it as `Nihongo.Prelude ()` to silence the warning;
+  otherwise import it open as `import Nihongo.Prelude`.
+
+- **`cabal repl nihongo-core` runs from `nihongo-core/` rather than the
+  project root, so `defaultKanjiVgRoot`'s `<cwd>/data/kanjivg` candidate
+  fails inside the repl.** Set `NIHONGO_KANJIVG_DIR=$PWD/data/kanjivg` (from
+  the project root) before `cabal repl` or pass `--kanjivg-dir` to use the
+  override. `cabal run nihongo` does run from the project root, so the
+  CLI-side acceptance in Milestone D works without the env var.
 
 
 ## Decision Log
