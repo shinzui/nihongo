@@ -150,10 +150,30 @@ that may want to bolt on:
 - A `cabal-fmt` → `cabal-gild` formatter swap commit will reorder/strip
   blank lines in cabal files; that drift is now permanently caught by the
   `formatting` check.
-- If KanjiVG ever needs to be embedded into the binary (rather than
+- ~~If KanjiVG ever needs to be embedded into the binary (rather than
   resolved at runtime), the overlay would need a `prePatch` that copies
-  `data/kanjivg/kanji/` into the build sandbox via a flake input. Not in
-  scope here; the current runtime resolution path handles it.
+  `data/kanjivg/kanji/` into the build sandbox via a flake input.~~
+  Done in the **post-plan extension** below.
+
+**Post-plan extension (2026-05-06): bake KanjiVG corpus into the binary.**
+
+Added `inputs.kanjivg-src = { url = "github:KanjiVG/kanjivg"; flake = false; }`
+to `flake.nix` and a `wrapProgram` postInstall in `nix/haskell-overlay.nix`:
+
+    wrapProgram $out/bin/nihongo \
+      --set-default NIHONGO_KANJIVG_DIR ${kanjivg-src}
+
+The wrapper makes `pkgs.nihongo` self-contained — `nihongo kanji show 漢`
+works from any cwd with no env var set, while still honouring
+`--kanjivg-dir <path>` (priority 1) and a user-set `NIHONGO_KANJIVG_DIR`
+(priority 2, overrides the baked default because `--set-default` only
+sets if unset). Verified from `/tmp` with the corpus rendered correctly,
+and from `/tmp` with `NIHONGO_KANJIVG_DIR=/nonexistent` failing as
+expected — proves the override hierarchy still works.
+
+This unblocks adding the nihongo flake to the user's dotfiles
+(`/Users/shinzui/.config/dotfiles.nix/flake.nix`) as a global package
+without any working-tree-pinned env-var coupling.
 
 **Lessons learned.**
 1. `callCabal2nix` only copies the named package directory into the build

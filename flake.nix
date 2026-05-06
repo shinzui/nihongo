@@ -9,6 +9,12 @@
   # Shared Haskell patch management
   inputs.haskell-nix.url = "github:shinzui/haskell-nix";
 
+  # KanjiVG SVG corpus, baked into the binary's NIHONGO_KANJIVG_DIR default.
+  inputs.kanjivg-src = {
+    url = "github:KanjiVG/kanjivg";
+    flake = false;
+  };
+
   outputs = { self, nixpkgs, pre-commit-hooks, flake-utils, treefmt-nix, ... }@inputs:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -24,6 +30,7 @@
             (inputs.haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
             (import ./nix/haskell-overlay.nix {
               inherit pkgs gitRev;
+              kanjivg-src = inputs.kanjivg-src;
             });
         };
       in

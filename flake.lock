@@ -73,6 +73,22 @@
         "type": "github"
       }
     },
+    "kanjivg-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1775218066,
+        "narHash": "sha256-iYv9xakgoGt/JwwdKDUCpSAF36hBtKlX9oN7xiLowjs=",
+        "owner": "KanjiVG",
+        "repo": "kanjivg",
+        "rev": "544d319f79348c092d567b662f27f33dacfa60cd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "KanjiVG",
+        "repo": "kanjivg",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1772173633,
@@ -161,6 +177,7 @@
       "inputs": {
         "flake-utils": "flake-utils",
         "haskell-nix": "haskell-nix",
+        "kanjivg-src": "kanjivg-src",
         "nixpkgs": "nixpkgs_2",
         "pre-commit-hooks": "pre-commit-hooks",
         "treefmt-nix": "treefmt-nix"
