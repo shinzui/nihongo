@@ -56,7 +56,7 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone A: Implement capability detection (`detectImageCapability`).
+- [x] Milestone A: Implement capability detection (`detectImageCapability`). (2026-05-05; verified inside tmux: `detectImageCapability` returns `KittyGraphics` via the tmux outer-env probe; override `True` short-circuits to `NoImageSupport`.)
 - [ ] Milestone B: Implement Kitty escape emitter and tmux passthrough wrapping (`displayImage`).
 - [ ] Milestone C: Implement SVG → PNG rasterisation with cache (`ensurePng`).
 - [ ] Milestone D: Implement `displaySvg` orchestration plus `--no-images` plumbing.

@@ -46,6 +46,7 @@ library
     Nihongo.Cli.Version
     Nihongo.Cli.Width
     Nihongo.Pretty
+    Nihongo.Terminal.Image
 
   autogen-modules: Paths_nihongo_cli
   other-modules: Paths_nihongo_cli
@@ -59,8 +60,10 @@ library
     githash ^>=0.1,
     lens ^>=5.3,
     optparse-applicative >=0.19,
+    process ^>=1.6,
     terminal-size ^>=0.3,
     text ^>=2.1,
+    unix ^>=2.8,
 
 executable nihongo
   import: common-options
