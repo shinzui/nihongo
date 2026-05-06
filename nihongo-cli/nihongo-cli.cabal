@@ -46,6 +46,7 @@ library
     Nihongo.Cli.Stdin
     Nihongo.Cli.Version
     Nihongo.Cli.Width
+    Nihongo.Kanji.Png
     Nihongo.Pretty
     Nihongo.Terminal.Image
 
