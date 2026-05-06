@@ -62,10 +62,13 @@ so future shared dependencies "just work".
   - [x] **Out-of-plan fix surfaced by the build:** drop `license-file: ../LICENSE` and `extra-doc-files: ../CHANGELOG.md` from both `nihongo-core.cabal` and `nihongo-cli.cabal`. See *Surprises & Discoveries* below.
   - [x] Run `nix build .#nihongo` and `./result/bin/nihongo --version`; output is `nihongo 0.1.0.0 (git: dirty)` (working tree has uncommitted changes during the build, which is the documented `self.shortRev or "dirty"` fallback). `./result/bin/nihongo --help` prints the full subcommand list (hello, help, completions, kanji).
 
-- [ ] **Milestone C — Add the `treefmt` formatter, the formatting flake check, and the pre-commit hook check, mirroring seihou.**
-  - [ ] Update `treefmt.nix` to take `{ pkgs, ghcVersion, ... }` so `fourmolu` and `cabal-gild` come from the GHC 9.12.2 package set.
-  - [ ] Edit `flake.nix`: add the `treefmtEval`/`formatter` lets and expose `formatter`, `checks.formatting`, and `checks.pre-commit-check`.
-  - [ ] Run `nix flake check`; expect it to pass with no formatting drift (or, if it surfaces drift, run `nix fmt` and commit the result before re-running).
+- [x] **Milestone C — Add the `treefmt` formatter, the formatting flake check, and the pre-commit hook check, mirroring seihou.** (2026-05-06)
+  - [x] Update `treefmt.nix` to take `{ pkgs, ghcVersion, ... }` so `fourmolu` and `cabal-gild` come from the GHC 9.12.2 package set.
+  - [x] Edit `flake.nix`: add the `treefmtEval`/`formatter` lets and expose `formatter`, `checks.formatting`, and `checks.pre-commit-check`.
+  - [x] Update stale `cabal.project` comment that still referenced `ghc912`.
+  - [x] Run `nix fmt` to normalize the codebase under fourmolu + cabal-gild + nixpkgs-fmt; 21 files reformatted (whitespace, blank-line removal, build-depends alphabetization).
+  - [x] Run `nix flake check` — both `formatting` and `pre-commit-check` derivations succeed.
+  - [x] Verify the pre-commit hook installs into `.git/hooks/pre-commit` on first `nix develop` entry. Confirmed: `pre-commit installed at .git/hooks/pre-commit`.
 
 
 ## Surprises & Discoveries
@@ -132,10 +135,41 @@ Fix was to drop both `../`-prefixed lines from both cabal files (mori-core/mori-
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at
-completion. Compare the result against the original purpose.
+**What was achieved.** A novice with only Nix can clone the repo and run
+`nix build .#nihongo` to get a working `./result/bin/nihongo` executable.
+The binary's `--version` reports `nihongo 0.1.0.0 (git: <sha>)` (or
+`(git: dirty)` against an unclean tree), driven by the shared
+`-DGIT_HASH=...` CPP fallback in `Nihongo.Cli.Version`. `nix flake check`
+passes both `formatting` (treefmt drift check) and `pre-commit-check`
+(cachix/pre-commit-hooks.nix). The pre-commit hook auto-installs into
+`.git/hooks/` on first `nix develop` entry. The repository now sits on the
+same `github:shinzui/haskell-nix` patch baseline as seihou, rei, and mori.
 
-(To be filled during and after implementation.)
+**Gaps / what remains.** None for this plan's stated scope. Future work
+that may want to bolt on:
+- A `cabal-fmt` → `cabal-gild` formatter swap commit will reorder/strip
+  blank lines in cabal files; that drift is now permanently caught by the
+  `formatting` check.
+- If KanjiVG ever needs to be embedded into the binary (rather than
+  resolved at runtime), the overlay would need a `prePatch` that copies
+  `data/kanjivg/kanji/` into the build sandbox via a flake input. Not in
+  scope here; the current runtime resolution path handles it.
+
+**Lessons learned.**
+1. `callCabal2nix` only copies the named package directory into the build
+   sandbox. Any cabal-file reference to a sibling or parent path (`license-file: ../LICENSE`, `extra-doc-files: ../CHANGELOG.md`) breaks the
+   build. The right fix is to stop referencing `../` from cabal files; the
+   files at the repo root remain available to humans without being indexed
+   by Cabal.
+2. Nix flakes only see git-tracked files. Adding a new file (e.g.
+   `nix/haskell-overlay.nix`) requires `git add` before the next
+   `nix build`/`nix flake check`, even without committing.
+3. The shared `haskell-nix` flake's `lib.haskellExtension` actually has the
+   signature `haskellLib -> pkgs -> hself -> hsuper -> attrs` (its README
+   shows the older `haskellLib -> hself -> hsuper -> attrs` form). The
+   correct call site is `inputs.haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs`, exactly as seihou and mori do it.
+4. The `(git: dirty)` suffix is correct behaviour, not a bug — it reflects
+   `self.shortRev or "dirty"`. A clean checkout produces a real SHA.
 
 
 ## Context and Orientation

@@ -16,6 +16,9 @@
         ghcVersion = "ghc9122";
         gitRev = self.shortRev or "dirty";
 
+        treefmtEval = treefmt-nix.lib.evalModule pkgs (import ./treefmt.nix { inherit pkgs ghcVersion; });
+        formatter = treefmtEval.config.build.wrapper;
+
         haskellPackages = pkgs.haskell.packages.${ghcVersion}.override {
           overrides = pkgs.lib.composeExtensions
             (inputs.haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
@@ -25,12 +28,22 @@
         };
       in
       {
+        formatter = formatter;
+
         packages = {
           nihongo = haskellPackages.nihongo-cli;
           default = haskellPackages.nihongo-cli;
         };
 
         checks = {
+          formatting = treefmtEval.config.build.check self;
+          pre-commit-check = pre-commit-hooks.lib.${system}.run {
+            src = ./.;
+            hooks = {
+              treefmt.package = formatter;
+              treefmt.enable = true;
+            };
+          };
         };
 
         devShells.default = pkgs.mkShell {
@@ -48,6 +61,7 @@
           ++ pkgs.lib.optional false pkgs.process-compose;
 
           shellHook = ''
+            ${self.checks.${system}.pre-commit-check.shellHook}
             export LANG=en_US.UTF-8
           '';
         };
