@@ -73,9 +73,9 @@ even if it requires splitting a partially completed task into two ("done" vs. "r
 This section must always reflect the actual current state of the work.
 
 - [x] Milestone A: Add `Nihongo.Kanji.Png` library module exporting `KanjiPngOptions`, `KanjiPngError`, and `kanjiPngPath`. (2026-05-05; commit `af87b28`. `cabal build all` clean; module compiled `[7 of 12]` with no warnings. Smoke test deferred to Milestone B's CLI exercise to avoid a redundant repl session.)
-- [ ] Milestone B: Add `Nihongo.Cli.Commands.Kanji.Png` subcommand and wire it into `Nihongo.Cli.Commands.Kanji.kanjiParser`.
-- [ ] Milestone C: Add `nihongo-cli/help/kanji-png.md` and register it in `Nihongo.Cli.Help.helpTopics`.
-- [ ] Milestone D: End-to-end manual verification of every invocation form listed in *Validation and Acceptance*.
+- [x] Milestone B: Add `Nihongo.Cli.Commands.Kanji.Png` subcommand and wire it into `Nihongo.Cli.Commands.Kanji.kanjiParser`. (2026-05-05; commit `6e7ea44`. `cabal build all` clean. Smoke-tested positional, stdin, ASCII reject, multi-char reject, and `cat "$(... png 漢)" | file -` round-trip — all pass.)
+- [x] Milestone C: Add `nihongo-cli/help/kanji-png.md` and register it in `Nihongo.Cli.Help.helpTopics`. (2026-05-05; commit pending immediately below. `nihongo help` now lists `kanji-png  -- kanji png command reference` between `about` and `kanji-show`; `nihongo help kanji-png` prints the body verbatim.)
+- [x] Milestone D: End-to-end manual verification of every invocation form listed in *Validation and Acceptance*. (2026-05-05; all 14 invocations exercised — happy paths for 漢/一, stdin, `--kanjivg-dir`, `cat | file -` round-trip; reject paths for ASCII, multi-char, KanjiVG miss, missing corpus, missing rsvg-convert; help shapes for `nihongo help`, `help kanji-png`, `kanji --help`, `kanji png --help`. Three discoveries that the original plan got wrong are recorded in *Surprises & Discoveries* below; *Validation and Acceptance* is corrected to match.)
 
 
 ## Surprises & Discoveries
@@ -102,6 +102,50 @@ implementation. Provide concise evidence.
       /Users/shinzui/.cache/nihongo/strokes/6863922aeab886a6882c472b463dc0e81cf36abb41e4c2c5fe479ebd6fe2c2be.png
       $ file "$(cabal run -v0 nihongo -- kanji png 漢)"
       .../strokes/6863922aeab886a6882c472b463dc0e81cf36abb41e4c2c5fe479ebd6fe2c2be.png: PNG image data, 384 x 384, 8-bit/color RGBA, non-interlaced
+
+- **`mkKanji` rejects everything outside CJK BMP + Ext A + kana, so the
+  CJK Ext B character 𠀋 (U+2000B) the original plan picked to exercise
+  `KpeSvgMissing` never reaches that branch — it errors out one layer
+  earlier with `not a Japanese character: 𠀋`.** Looking at
+  `nihongo-core/src/Nihongo/Kanji.hs`, `mkKanji`'s accepted ranges are
+  U+4E00–U+9FFF (CJK Unified), U+3400–U+4DBF (Ext A), U+3040–U+309F
+  (Hiragana), U+30A0–U+30FF (Katakana). Anything outside those — Ext B,
+  Ext C, compatibility forms, etc. — is `KanjiOutOfRange`. The
+  module's docstring optimistically states "KanjiVG covers all of those",
+  which is *almost* true but not quite: KanjiVG ships ~11,661 SVGs, and
+  the BMP CJK Unified block alone is 20,992 codepoints, so there are
+  thousands of `mkKanji`-accepted characters that KanjiVG simply does
+  not have a file for. Replaced the test with U+9FF0 (鿰), which
+  `mkKanji` accepts and KanjiVG lacks; that correctly produces
+  `KanjiVG has no entry for 鿰`. The plan's *Validation and Acceptance*
+  has been updated.
+
+- **`resolveKanjiVgRoot` falls back to `<cwd>/data/kanjivg`
+  unconditionally, so a test that *only* clears the override and the
+  env var still finds the corpus when run from the project root.** I
+  set `NIHONGO_KANJIVG_DIR=/nonexistent` and `--kanjivg-dir /also/nonexistent`
+  expecting `KpeKanjiVgRootMissing`; instead the cwd-relative
+  `data/kanjivg` was picked up and the command succeeded. To exercise
+  the missing-corpus path, run from a directory that has no
+  `data/kanjivg/kanji/` subdirectory (e.g. `cd /tmp` first), or
+  invoke the absolute path of the built executable from outside the
+  project. Updated *Validation and Acceptance* with the corrected
+  recipe.
+
+- **`PATH=/usr/bin cabal run nihongo -- ...` doesn't actually exercise
+  the missing-rsvg-convert path: it makes `cabal` itself unfindable
+  (`command not found: cabal`, exit 127) before the program even
+  starts.** Both `cabal` and `rsvg-convert` come from the Nix devshell;
+  stripping `PATH` strips both. The right recipe is to invoke the
+  already-built binary directly with a restricted `PATH`. The full
+  binary path under this project is
+  `dist-newstyle/build/aarch64-osx/ghc-9.12.2/nihongo-cli-0.1.0.0/x/nihongo/build/nihongo/nihongo`
+  (the host triple varies — `aarch64-osx` here, `x86_64-linux` on a
+  Linux dev box). With a fresh cache (`rm -f
+  ~/.cache/nihongo/strokes/<sha>.png`), `PATH=/usr/bin <binary> kanji
+  png 漢 --kanjivg-dir <abs-path>` correctly produces `failed to
+  rasterise SVG: rsvg-convert not found: ...` on stderr and exits 1.
+  Updated *Validation and Acceptance* accordingly.
 
 
 ## Decision Log
@@ -159,7 +203,78 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-05): four commits land EP-7 on `master`:
+
+    af87b28 EP-7 Milestone A — add Nihongo.Kanji.Png library module
+    6e7ea44 EP-7 Milestone B — wire `nihongo kanji png` subcommand
+    215fbae EP-7 Milestone C — add kanji-png help topic
+    <pending> EP-7 Milestone D — verification + plan updates
+
+The user-visible feature works exactly as the *Purpose* section
+described. `nihongo kanji png 漢` prints
+`/Users/shinzui/.cache/nihongo/strokes/<sha>.png`, exits 0, and the
+file at that path is a valid PNG of 漢 (currently 384×384 RGBA;
+the dimensions track upstream `Nihongo.Terminal.Image`). Stdin
+(`echo 漢 | nihongo kanji png`), `--kanjivg-dir`, and command
+substitution (`cat "$(nihongo kanji png 漢)" | file -`) all behave
+as documented. Every error path renders a single-line message to
+stderr, leaves stdout empty, and exits 1 — verified for ASCII
+input, multi-character input, KanjiVG-miss (using U+9FF0), missing
+corpus (with cwd fallback defeated), and missing `rsvg-convert`
+(via the built-binary restricted-PATH recipe). The cache is shared
+with `kanji show`: the second `nihongo kanji png 漢` runs in
+~220 ms wall time end-to-end (most of which is GHC RTS startup),
+and `kanji show 漢` after `kanji png 漢` is also instantaneous.
+
+The library function `Nihongo.Kanji.Png.kanjiPngPath` is exported
+and is the canonical "give me a PNG for this kanji" entry point
+for any future caller (a hypothetical MCP server, a `kanji export`
+batch tool, etc.) — the typed `KanjiPngError` sum and
+`renderKanjiPngError` mean those callers do not have to repeat the
+error-rendering logic.
+
+Gap: none material. The PNG dimension assertion (109×109 in the
+draft, 384×384 in reality) and three under-specified error-path
+recipes (CJK Ext B vs the `mkKanji` range, the cwd fallback in
+`resolveKanjiVgRoot`, and `PATH=/usr/bin cabal run` versus
+`PATH=/usr/bin <binary>`) were caught in Milestone D and
+back-propagated to *Surprises & Discoveries* and *Validation and
+Acceptance* so a re-runner gets the right commands.
+
+Lessons:
+
+1. **Validate plan assumptions against the actual upstream module
+   when the plan composes pre-existing code.** The 109×109 number
+   was a fact about EP-4 Milestone C that became wrong at commit
+   `c06255b`; the draft inherited it without checking. Future
+   composition-style plans should grep the upstream module's
+   constants before quoting them.
+
+2. **Smart-constructor ranges are easy to forget.** `mkKanji`
+   accepts only BMP CJK + Ext A + kana, which is narrower than
+   "any character KanjiVG might cover". When designing tests for
+   error branches behind such a constructor, *first* read the
+   constructor's accepted range, *then* pick a test input that
+   reaches the branch you want.
+
+3. **`resolveKanjiVgRoot`'s cwd fallback is convenient at runtime
+   but invisible to test design.** When demonstrating "the corpus
+   is missing", *all three* resolution sources must be defeated —
+   override, env var, and cwd. The cleanest way is to `cd` outside
+   the project and invoke the absolute path of the built binary.
+
+4. **`cabal run` cannot be combined with PATH-stripping tests
+   because cabal itself is on the same PATH the test is trying to
+   strip.** For "X is missing on PATH" tests, build first, then
+   invoke the built binary directly.
+
+5. The decision to put `Nihongo.Kanji.Png` in `nihongo-cli` rather
+   than `nihongo-core` proved trivially correct: zero new
+   dependencies were added at the cabal level (the function is a
+   straight composition of three existing functions), and the
+   single-file move is still available if a future non-CLI
+   consumer needs the function. The new module compiled at
+   position `[7 of 12]` with no warnings.
 
 
 ## Context and Orientation
@@ -751,21 +866,44 @@ stderr, leaves stdout empty, and exits 1.
 `cabal run nihongo -- kanji png 漢 --kanjivg-dir data/kanjivg` produces the
 same output as the no-flag form (it just makes the resolution explicit).
 
-`cabal run nihongo -- kanji png 𠀋 --kanjivg-dir data/kanjivg` (a CJK
-codepoint outside KanjiVG's coverage) writes
-`KanjiVG has no entry for 𠀋` to stderr, leaves stdout empty, exits 1.
+`cabal run nihongo -- kanji png 鿰 --kanjivg-dir data/kanjivg` (a CJK
+character that `mkKanji` accepts — U+9FF0, near the end of the CJK Unified
+Ideographs block — but that KanjiVG has no SVG for) writes
+`KanjiVG has no entry for 鿰` to stderr, leaves stdout empty, exits 1.
 
-`NIHONGO_KANJIVG_DIR=/nonexistent cabal run nihongo -- kanji png 漢
---kanjivg-dir /also/nonexistent` writes `could not find the KanjiVG corpus;
-see ` `nihongo help kanji-png` ` ` to stderr, leaves stdout empty, exits 1.
+(*Do not* substitute a CJK Extension B / C character like 𠀋 (U+2000B) here:
+`mkKanji`'s accepted range stops at U+9FFF, so anything beyond is rejected
+one layer earlier with `not a Japanese character: <char>`, which exercises a
+different code path. See *Surprises & Discoveries*.)
 
-`PATH=/usr/bin cabal run nihongo -- kanji png 漢` (stripping the Nix shell so
-`rsvg-convert` is unavailable, *and* with a fresh cache so the second-call
-fast path is not taken — `rm -rf ~/.cache/nihongo/strokes/` first) writes
-`failed to rasterise SVG: rsvg-convert not found: ...` to stderr, leaves
-stdout empty, exits 1. (If the same kanji is already cached, `ensurePng`
-returns early and the command succeeds — that is correct behaviour and not a
-bug.)
+To exercise the missing-corpus error, you must also defeat
+`resolveKanjiVgRoot`'s implicit `<cwd>/data/kanjivg` fallback — clearing
+just the override and the env var is not enough when you are running from
+the project root. Run the *built* binary from a directory with no
+`./data/kanjivg/kanji/` (such as `/tmp`):
+
+    cd /tmp
+    NIHONGO_KANJIVG_DIR=/nonexistent \
+      <project>/dist-newstyle/build/<host>/ghc-<ver>/nihongo-cli-0.1.0.0/x/nihongo/build/nihongo/nihongo \
+      kanji png 漢 --kanjivg-dir /also/nonexistent
+
+writes ``could not find the KanjiVG corpus; see `nihongo help kanji-png` ``
+to stderr, leaves stdout empty, exits 1.
+
+To exercise the missing-`rsvg-convert` error, *do not* prefix `PATH=/usr/bin`
+to a `cabal run` invocation — `cabal` itself comes from the Nix devshell, so
+stripping the path makes `cabal` unfindable (exit 127) before the program
+even starts. Instead, invoke the built binary directly with a restricted
+`PATH`, and clear the cache for the kanji you are testing first so
+`ensurePng` does not short-circuit on a hit:
+
+    rm -f ~/.cache/nihongo/strokes/<sha>.png
+    PATH=/usr/bin \
+      <project>/dist-newstyle/build/<host>/ghc-<ver>/nihongo-cli-0.1.0.0/x/nihongo/build/nihongo/nihongo \
+      kanji png 漢 --kanjivg-dir <project>/data/kanjivg
+
+writes `failed to rasterise SVG: rsvg-convert not found: ...` to stderr,
+leaves stdout empty, exits 1.
 
 `cabal run nihongo -- help kanji-png` prints the topic body, wrapped to the
 terminal width.
