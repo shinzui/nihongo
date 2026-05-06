@@ -65,8 +65,8 @@ This section must always reflect the actual current state of the work.
 - [x] Milestone C: Implement `Nihongo.Cli.Version` with githash + CPP fallback. (2026-05-05)
 - [x] Milestone C: Implement `Nihongo.Cli.Stdin` (auto-detect piped input). (2026-05-05)
 - [x] Milestone C: Implement `Nihongo.Cli.Width` (terminal-size + paragraph wrap). (2026-05-05)
-- [ ] Milestone D: Implement `Nihongo.Cli.Help` with embedded markdown topics.
-- [ ] Milestone D: Implement `Nihongo.Cli.Completions` with built-in optparse protocol.
+- [x] Milestone D: Implement `Nihongo.Cli.Help` with embedded markdown topics. (2026-05-05)
+- [x] Milestone D: Implement `Nihongo.Cli.Completions` with built-in optparse protocol. (2026-05-05)
 - [ ] Milestone E: Restructure `Nihongo.Cli` to use the parser-shape-safe pattern with `version`, `help`, `completions`, and a placeholder `hello` subcommand wired through stdin auto-detection.
 - [ ] Milestone E: All commands listed in Validation and Acceptance produce the expected output.
 

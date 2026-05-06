@@ -39,6 +39,8 @@ library
   hs-source-dirs: src
   exposed-modules:
     Nihongo.Cli
+    Nihongo.Cli.Completions
+    Nihongo.Cli.Help
     Nihongo.Cli.Stdin
     Nihongo.Cli.Version
     Nihongo.Cli.Width
@@ -47,6 +49,7 @@ library
   build-depends:
     base >=4.20 && <5,
     bytestring ^>=0.12,
+    file-embed ^>=0.0.16,
     nihongo-core,
     generic-lens,
     githash ^>=0.1,
