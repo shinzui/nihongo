@@ -58,7 +58,7 @@ This section must always reflect the actual current state of the work.
 
 - [x] Milestone A: Implement capability detection (`detectImageCapability`). (2026-05-05; verified inside tmux: `detectImageCapability` returns `KittyGraphics` via the tmux outer-env probe; override `True` short-circuits to `NoImageSupport`.)
 - [x] Milestone B: Implement Kitty escape emitter and tmux passthrough wrapping (`displayImage`). (2026-05-05)
-- [ ] Milestone C: Implement SVG → PNG rasterisation with cache (`ensurePng`).
+- [x] Milestone C: Implement SVG → PNG rasterisation with cache (`ensurePng`). (2026-05-05; first call rasterises ~/.cache/nihongo/strokes/<sha>.png at 109×109 RGBA; second call returns the same path with no rsvg-convert process spawned)
 - [ ] Milestone D: Implement `displaySvg` orchestration plus `--no-images` plumbing.
 - [ ] Milestone D: Add the temporary `image-debug-render` subcommand.
 - [ ] Milestone D: Manual verification in Kitty, in tmux-inside-Kitty, and in a non-Kitty terminal.

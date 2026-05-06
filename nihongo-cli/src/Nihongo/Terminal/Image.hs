@@ -8,17 +8,24 @@ module Nihongo.Terminal.Image
   , detectImageCapability
   , detectImageCapabilityWithOverride
   , displayImage
+  , ensurePng
   ) where
 
 import Control.Exception (IOException, try)
 import Control.Monad (replicateM_)
+import Crypto.Hash.SHA256 qualified as SHA256
 import Data.ByteString (ByteString)
+import Data.ByteString qualified as BS
 import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Char8 qualified as BS8
 import Data.Text qualified as Text
+import System.Directory (createDirectoryIfMissing, doesFileExist, getHomeDirectory)
 import System.Environment (lookupEnv)
+import System.Exit (ExitCode (..))
+import System.FilePath qualified as FP
 import System.IO qualified as IO
-import System.Process (readProcess)
+import System.Process (readProcess, readProcessWithExitCode)
+import Text.Printf (printf)
 
 import Nihongo.Prelude
 
@@ -91,6 +98,50 @@ displayImage absPath = do
 tmuxDouble :: ByteString -> ByteString
 tmuxDouble =
   BS8.concatMap (\c -> if c == '\ESC' then "\ESC\ESC" else BS8.singleton c)
+
+-- | Resolve @<XDG_CACHE_HOME or ~/.cache>/nihongo/strokes/@ and ensure
+--   the directory exists. Returns the absolute path.
+cacheDir :: IO FilePath
+cacheDir = do
+  mXdg <- lookupEnv "XDG_CACHE_HOME"
+  home <- getHomeDirectory
+  let root = case mXdg of
+        Just p | not (null p) -> p
+        _ -> home FP.</> ".cache"
+      dir = root FP.</> "nihongo" FP.</> "strokes"
+  createDirectoryIfMissing True dir
+  pure dir
+
+-- | Given an SVG file path, return the path to a cached PNG of it. If the
+--   PNG does not exist yet (cache miss), rasterise it via @rsvg-convert@.
+--   The cache key is the SHA-256 of the SVG file contents.
+ensurePng :: FilePath -> IO (Either Text FilePath)
+ensurePng svgPath = do
+  svgBytes <- BS.readFile svgPath
+  let digest = SHA256.hash svgBytes
+      hex = Text.pack (concatMap (printf "%02x") (BS.unpack digest))
+  dir <- cacheDir
+  let pngPath = dir FP.</> Text.unpack hex FP.<.> "png"
+  cached <- doesFileExist pngPath
+  if cached
+    then pure (Right pngPath)
+    else rasterise svgPath pngPath
+
+rasterise :: FilePath -> FilePath -> IO (Either Text FilePath)
+rasterise svgPath pngPath = do
+  result <-
+    try
+      ( readProcessWithExitCode
+          "rsvg-convert"
+          ["--format=png", "--output", pngPath, svgPath]
+          ""
+      ) ::
+      IO (Either IOException (ExitCode, String, String))
+  case result of
+    Left e -> pure (Left ("rsvg-convert not found: " <> Text.pack (show e)))
+    Right (ExitSuccess, _, _) -> pure (Right pngPath)
+    Right (ExitFailure n, _, e) ->
+      pure (Left ("rsvg-convert exit " <> Text.pack (show n) <> ": " <> Text.pack e))
 
 -- | Run @tmux show-environment -g <var>@ and pull the value out. Swallows
 --   any 'IOException' (so callers still work if @tmux@ is missing or the
