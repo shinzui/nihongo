@@ -48,7 +48,7 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone A: Build the CJK Stroke type → English description table.
+- [x] Milestone A: Build the CJK Stroke type → English description table. (2026-05-05)
 - [ ] Milestone B: Implement `parseStrokeOrderText :: Text -> Either ParseError StrokeOrderInfo`.
 - [ ] Milestone C: Implement `parseStrokeOrderFile :: FilePath -> IO (Either ParseError StrokeOrderInfo)`.
 - [ ] Milestone D: Add a hspec test suite with three fixture SVGs (committed under `nihongo-core/test/fixtures/`).

@@ -40,12 +40,14 @@ library
   exposed-modules:
     Nihongo.Kanji
     Nihongo.Kanji.KanjiVg
+    Nihongo.Kanji.StrokeType
     Nihongo.Prelude
 
   build-depends:
     aeson ^>=2.2,
     aeson-casing ^>=0.2,
     base >=4.20 && <5,
+    containers ^>=0.7,
     directory ^>=1.3,
     filepath ^>=1.4,
     generic-lens,
