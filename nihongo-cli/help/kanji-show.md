@@ -21,6 +21,12 @@ Use `--no-images` to suppress the inline image even when the terminal supports
 it. Use `--kanjivg-dir PATH` to point at an alternate KanjiVG checkout (the
 default is the git submodule at `data/kanjivg/`).
 
+The textual stroke list now reads `<n>. <description>  <symbol>` where
+the trailing CJK Stroke character (e.g. `㇔`, `㇑`, `㇏`) is rendered
+dim. If your terminal font lacks glyphs for the CJK Strokes block
+(U+31C0–U+31E3), the dim symbol may render as `?` or `\` — but the
+description on the same line is unaffected.
+
 ## Requirements
 
 - The KanjiVG submodule must be initialised: `git submodule update --init data/kanjivg`.
@@ -28,3 +34,13 @@ default is the git submodule at `data/kanjivg/`).
   rendering. The Nix devshell provides it via `pkgs.librsvg`.
 - For inline image rendering inside `tmux`, set `set -g allow-passthrough on`
   in your `~/.tmux.conf`.
+
+## Known limitations
+
+The Kitty graphics protocol uses *absolute terminal coordinates*, not
+pane-relative ones. Inside a tmux session with split panes, the inline
+image will paint at the outer terminal's row 0 — visually appearing in
+the top-most pane instead of the pane where you ran `kanji show`.
+Workarounds: run in a single-pane tmux session, run outside tmux
+entirely, or pass `--no-images` to suppress the image and rely on the
+textual stroke order.

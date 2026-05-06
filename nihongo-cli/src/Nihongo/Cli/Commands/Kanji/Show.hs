@@ -171,10 +171,11 @@ header k info =
 renderStrokeLine :: Stroke -> Text
 renderStrokeLine s =
   let n = Text.pack (show (strokeIndex s))
-      rt = maybe "" Text.singleton (baseChar <$> strokeType s)
-      d = fromMaybe "" (describeStrokeType =<< strokeType s)
-      sep = if Text.null d then "" else " " <> d
-   in n <> ". " <> rt <> sep
+      d = fromMaybe "(unknown)" (describeStrokeType =<< strokeType s)
+      symbol = case strokeType s of
+        Just (StrokeType c _) -> "  " <> Pretty.dim (Text.singleton c)
+        Nothing -> ""
+   in n <> ". " <> d <> symbol
 
 die :: Text -> IO a
 die msg = do
