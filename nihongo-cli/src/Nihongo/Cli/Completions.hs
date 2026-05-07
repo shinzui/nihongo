@@ -51,26 +51,38 @@ runCompletionsCommand sh = do
           complete -o filenames -F _nihongo_completions nihongo
           """
         Zsh ->
-          "#compdef "
-            <> progName
-            <> "\n"
-            <> "_nihongo() {\n"
-            <> "  local words completions\n"
-            <> "  read -cA words\n"
-            <> "  if [[ \"${words[$CURRENT]}\" == --* ]]; then\n"
-            <> "    completions=($(\""
-            <> progName
-            <> "\" --bash-completion-index $CURRENT --bash-completion-word \"${words[@]}\"))\n"
-            <> "  else\n"
-            <> "    completions=($(\""
-            <> progName
-            <> "\" --bash-completion-index $CURRENT --bash-completion-word \"${words[@]}\"))\n"
-            <> "  fi\n"
-            <> "  reply=( \"${(ps:\\n:)completions}\" )\n"
-            <> "}\n"
-            <> "compctl -K _nihongo "
-            <> progName
-            <> "\n"
+          """
+          #compdef nihongo
+
+          _nihongo() {
+              local -a completions
+              local CMDLINE
+              local IFS=$'\\n'
+
+              CMDLINE=(--bash-completion-enriched --bash-completion-index $((CURRENT - 1)))
+
+              for arg in ${words[@]}; do
+                  CMDLINE=(${CMDLINE[@]} --bash-completion-word "$arg")
+              done
+
+              local line
+              for line in $(nihongo "${CMDLINE[@]}" 2>/dev/null); do
+                  local word=${line%%$'\\t'*}
+                  local desc=${line#*$'\\t'}
+                  if [[ "$word" != "$desc" ]]; then
+                      completions+=("${word//:/\\\\:}:${desc}")
+                  else
+                      completions+=("$word")
+                  fi
+              done
+
+              if [[ ${#completions[@]} -gt 0 ]]; then
+                  _describe 'nihongo' completions
+              fi
+          }
+
+          _nihongo
+          """
         Fish ->
           "function _nihongo_completion\n"
             <> "  set -l cmd (commandline -opc) (commandline -ct)\n"

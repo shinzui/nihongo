@@ -61,7 +61,7 @@ here, even if it requires splitting a partially completed task into two ("done" 
 - [x] Verify the binary's plain protocol output by running the snapshot command in **Concrete Steps / Pre-flight verification**. — 2026-05-06
 - [x] Verify the binary's enriched protocol output by running the snapshot command in **Concrete Steps / Pre-flight verification**. — 2026-05-06
 - [x] Milestone 1 — Rewrite the Bash generator in `nihongo-cli/src/Nihongo/Cli/Completions.hs` to match the reference's plain-protocol script. Build and snapshot the new output. — 2026-05-06
-- [ ] Milestone 2 — Rewrite the Zsh generator to use `#compdef` + `_describe` (enriched protocol). Build and snapshot the new output.
+- [x] Milestone 2 — Rewrite the Zsh generator to use `#compdef` + `_describe` (enriched protocol). Build and snapshot the new output. — 2026-05-06
 - [ ] Milestone 3 — Rewrite the Fish generator to use enriched protocol with `complete -c nihongo -f` and a `__nihongo_complete` helper function. Build and snapshot the new output.
 - [ ] Milestone 4 — Add a Haskell test module `nihongo-cli/test/Test/Nihongo/Cli/CompletionsSpec.hs` (and supporting cabal stanza) that asserts each generated script contains the canonical landmark strings from the reference (e.g. `--bash-completion-enriched`, `_describe`, `complete -c nihongo -f`). This catches regressions cheaply without spawning real shells.
 - [ ] Milestone 5 — Smoke test each script in a real shell as described in **Validation and Acceptance**. Capture transcripts in this plan's Surprises & Discoveries if anything diverges from expectations.
