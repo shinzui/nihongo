@@ -35,20 +35,21 @@ runCompletionsCommand sh = do
   let progName = "nihongo"
   let scriptText = case sh of
         Bash ->
-          "_nihongo_completions() {\n"
-            <> "  local CMDLINE\n"
-            <> "  local IFS=$'\\n'\n"
-            <> "  CMDLINE=(--bash-completion-index $COMP_CWORD)\n"
-            <> "  for arg in \"${COMP_WORDS[@]}\"; do\n"
-            <> "    CMDLINE=(\"${CMDLINE[@]}\" --bash-completion-word \"$arg\")\n"
-            <> "  done\n"
-            <> "  COMPREPLY=( $(\""
-            <> progName
-            <> "\" \"${CMDLINE[@]}\") )\n"
-            <> "}\n"
-            <> "complete -o filenames -F _nihongo_completions "
-            <> progName
-            <> "\n"
+          """
+          _nihongo_completions() {
+              local CMDLINE
+              local IFS=$'\\n'
+              CMDLINE=(--bash-completion-index $COMP_CWORD)
+
+              for arg in ${COMP_WORDS[@]}; do
+                  CMDLINE=(${CMDLINE[@]} --bash-completion-word "$arg")
+              done
+
+              COMPREPLY=( $(nihongo "${CMDLINE[@]}" 2>/dev/null) )
+          }
+
+          complete -o filenames -F _nihongo_completions nihongo
+          """
         Zsh ->
           "#compdef "
             <> progName
