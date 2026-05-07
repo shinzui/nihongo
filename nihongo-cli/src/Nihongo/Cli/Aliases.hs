@@ -22,7 +22,8 @@ builtinCommands =
   [ "hello",
     "help",
     "completions",
-    "kanji"
+    "kanji",
+    "alias"
   ]
 
 -- | Rewrite the first positional argument according to the alias map.

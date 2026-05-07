@@ -37,6 +37,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Nihongo.Cli
+    Nihongo.Cli.Alias
     Nihongo.Cli.Aliases
     Nihongo.Cli.Commands.Kanji
     Nihongo.Cli.Commands.Kanji.Png
@@ -98,6 +99,8 @@ test-suite nihongo-cli-test
     containers ^>=0.7,
     hspec ^>=2.11,
     nihongo-cli,
+    nihongo-core,
+    optparse-applicative >=0.19,
     text ^>=2.1,
 
   ghc-options:

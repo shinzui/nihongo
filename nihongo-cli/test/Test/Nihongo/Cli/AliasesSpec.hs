@@ -1,7 +1,14 @@
 module Test.Nihongo.Cli.AliasesSpec (spec) where
 
+import Data.List (find)
 import Data.Map.Strict qualified as Map
+import Data.Text qualified as T
+import Nihongo.Cli (runCliParserInfo)
+import Nihongo.Cli.Alias (renderAliasTable)
 import Nihongo.Cli.Aliases (builtinCommands, expandAlias)
+import Nihongo.Cli.Help (helpTopics)
+import Nihongo.Prelude
+import Options.Applicative (ParserResult (..), defaultPrefs, execParserPure)
 import Test.Hspec
 
 spec :: Spec
@@ -51,6 +58,71 @@ spec = do
         ["multi"]
         `shouldBe` ["kanji", "show", "漢"]
 
-  describe "builtinCommands registry" $
+  describe "builtinCommands registry" $ do
     it "contains exactly the commands registered in commandParser today" $
-      builtinCommands `shouldMatchList` ["hello", "help", "completions", "kanji"]
+      builtinCommands
+        `shouldMatchList` ["hello", "help", "completions", "kanji", "alias"]
+
+    it "the parser accepts every name in builtinCommands" $
+      mapM_
+        ( \name ->
+            case execParserPure defaultPrefs runCliParserInfo [T.unpack name, "--help"] of
+              Failure _ -> pure ()
+              Success _ -> expectationFailure (T.unpack name <> " --help unexpectedly succeeded")
+              CompletionInvoked _ -> expectationFailure (T.unpack name <> " --help triggered completion path")
+        )
+        builtinCommands
+
+    it "the parser refuses an unknown top-level command" $
+      case execParserPure defaultPrefs runCliParserInfo ["definitely-not-real"] of
+        Failure _ -> pure ()
+        _ -> expectationFailure "expected Failure for unknown subcommand"
+
+  describe "renderAliasTable" $ do
+    it "prints a friendly note for an empty map" $
+      renderAliasTable Map.empty `shouldBe` "No aliases configured.\n"
+
+    it "renders a single entry without padding" $
+      renderAliasTable (Map.singleton "ks" "kanji show")
+        `shouldBe` "ks = kanji show\n"
+
+    it "left-pads the longest name and aligns the '=' separators" $
+      renderAliasTable
+        ( Map.fromList
+            [ ("h", "help"),
+              ("kp", "kanji png"),
+              ("ks", "kanji show")
+            ]
+        )
+        `shouldBe` T.unlines
+          [ "h  = help",
+            "kp = kanji png",
+            "ks = kanji show"
+          ]
+
+    it "sorts entries ascending by alias name" $
+      renderAliasTable
+        ( Map.fromList
+            [ ("zz", "zulu"),
+              ("aa", "alpha")
+            ]
+        )
+        `shouldBe` T.unlines
+          [ "aa = alpha",
+            "zz = zulu"
+          ]
+
+  describe "nihongo help aliases" $ do
+    it "is registered in the help topic index" $
+      case find ((== "aliases") . (^. #topicName)) helpTopics of
+        Nothing -> expectationFailure "aliases topic not registered"
+        Just _ -> pure ()
+
+    it "topic body covers schema, precedence, built-in protection, and listing" $
+      case find ((== "aliases") . (^. #topicName)) helpTopics of
+        Nothing -> expectationFailure "aliases topic not registered"
+        Just t -> do
+          ("SCHEMA" `T.isInfixOf` (t ^. #topicContent)) `shouldBe` True
+          ("PRECEDENCE" `T.isInfixOf` (t ^. #topicContent)) `shouldBe` True
+          ("BUILT-IN PROTECTION" `T.isInfixOf` (t ^. #topicContent)) `shouldBe` True
+          ("nihongo alias list" `T.isInfixOf` (t ^. #topicContent)) `shouldBe` True

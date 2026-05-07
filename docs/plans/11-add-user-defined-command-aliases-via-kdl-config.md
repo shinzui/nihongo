@@ -112,12 +112,12 @@ current state of the work.
       execParserPure → handleParseResult` sequence. Demonstrate
       `nihongo ks 漢` working end-to-end with a hand-written config under
       `XDG_CONFIG_HOME=$(mktemp -d)`. (2026-05-06)
-- [ ] Milestone 4 — Add the `nihongo alias list` subcommand
+- [x] Milestone 4 — Add the `nihongo alias list` subcommand
       (`Nihongo.Cli.Alias`), register it in `commandParser`, add it to
       `builtinCommands`, and add a `nihongo-cli/help/aliases.md` topic
       registered in `Nihongo.Cli.Help.helpTopics`. Extend the test module
       to cover `renderAliasTable` and assert the parser accepts every name in
-      `builtinCommands`.
+      `builtinCommands`. (2026-05-06)
 - [ ] Milestone 5 — End-to-end smoke test in a real shell using a real
       `~/.config/nihongo/config.kdl` (or an `XDG_CONFIG_HOME` override)
       following the script in **Validation and Acceptance**. Capture the
@@ -160,6 +160,23 @@ during implementation. Provide concise evidence.
   in a custom renderer later." Output is now a clean parser
   diagnostic with line/column. No new dependency required;
   `KDL.renderDecodeError` is already in `kdl-hs`.
+- 2026-05-06 (Milestone 4): The plan's Step 2 listed a hypothetical
+  `Nihongo.Config` re-export shim "added in Milestone 4 only if it
+  makes the imports in `Nihongo.Cli` cleaner". It did not — both
+  `Nihongo.Cli` and `Nihongo.Cli.Alias` import directly from
+  `Nihongo.Config.Load` and `Nihongo.Config.Types` cleanly. Skipped.
+- 2026-05-06 (Milestone 4): The plan's Step 10 spec extension imported
+  `HelpTopic (..)` for pattern-matching, but the test uses
+  `(^. #topicName)` and `(^. #topicContent)` (lens labels) and never
+  pattern-matches the constructor. The constructor import is unused
+  and triggers `-Wunused-imports`; trimmed to `helpTopics` only.
+- 2026-05-06 (Milestone 4): The CLI test stanza in
+  `nihongo-cli/nihongo-cli.cabal` previously did not list
+  `nihongo-core` or `optparse-applicative`. Both became necessary in
+  M4 because `Test.Nihongo.Cli.AliasesSpec` imports `Nihongo.Prelude`
+  (for the lens labels) and `Options.Applicative` (for the
+  `execParserPure` registry test). Plan's Step 2 listed only the
+  module additions, not these new test-suite dependencies.
 
 
 ## Decision Log

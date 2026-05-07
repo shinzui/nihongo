@@ -4,15 +4,19 @@
 --   the raw argv, parses the result, and dispatches to one of the
 --   subcommands: `hello` (placeholder demonstrating stdin auto-detection),
 --   `help` (topic browser with width-aware wrapping), `completions` (shell
---   completion script generator), or `kanji` (lookup commands).
+--   completion script generator), `kanji` (lookup commands), or `alias`
+--   (inspect configured aliases).
 module Nihongo.Cli
   ( runCli,
+    runCliParserInfo,
+    Command (..),
   )
 where
 
 import Data.Foldable (traverse_)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
+import Nihongo.Cli.Alias qualified as Alias
 import Nihongo.Cli.Aliases (builtinCommands, expandAlias)
 import Nihongo.Cli.Commands.Kanji qualified as Kanji
 import Nihongo.Cli.Completions qualified as Completions
@@ -32,6 +36,7 @@ data Command
   | CmdHelp !Help.HelpCommand
   | CmdCompletions !Completions.CompletionsShell
   | CmdKanji !Kanji.KanjiCommand
+  | CmdAlias !Alias.AliasCommand
   deriving stock (Generic, Show, Eq)
 
 runCli :: IO ()
@@ -40,16 +45,19 @@ runCli = do
   expanded <- expandRawArgs rawArgs
   cmd <-
     handleParseResult $
-      execParserPure (prefs showHelpOnEmpty) parserInfo expanded
+      execParserPure (prefs showHelpOnEmpty) runCliParserInfo expanded
   runCommand cmd
-  where
-    parserInfo =
-      info
-        (commandParser <**> helper <**> versionInfoOption)
-        ( fullDesc
-            <> progDesc "Terminal-first Japanese learning companion."
-            <> header "nihongo - kanji, vocabulary, readings, stroke order, and grammar from the command line."
-        )
+
+-- | Top-level 'ParserInfo' for the nihongo CLI. Exposed so test harnesses
+--   can drive the parser via 'execParserPure' without invoking 'runCli'.
+runCliParserInfo :: ParserInfo Command
+runCliParserInfo =
+  info
+    (commandParser <**> helper <**> versionInfoOption)
+    ( fullDesc
+        <> progDesc "Terminal-first Japanese learning companion."
+        <> header "nihongo - kanji, vocabulary, readings, stroke order, and grammar from the command line."
+    )
 
 commandParser :: Parser Command
 commandParser =
@@ -78,6 +86,12 @@ commandParser =
               (CmdKanji <$> Kanji.kanjiParser)
               (progDesc "Look up kanji: stroke order, components, readings")
           )
+        <> command
+          "alias"
+          ( info
+              (CmdAlias <$> Alias.aliasCommandParser <**> helper)
+              (progDesc "Inspect configured command aliases")
+          )
     )
 
 helloParser :: Parser Command
@@ -92,6 +106,7 @@ runCommand (CmdHello mName) = do
 runCommand (CmdHelp hc) = Help.runHelpCommand hc
 runCommand (CmdCompletions sh) = Completions.runCompletionsCommand sh
 runCommand (CmdKanji c) = Kanji.runKanji c
+runCommand (CmdAlias c) = Alias.handleAliasCommand c
 
 -- | Resolve the alias map (only when the first token might actually be
 --   an alias) and rewrite @argv@. Skips config IO entirely when the first
