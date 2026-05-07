@@ -48,7 +48,7 @@ loadNihongoConfig = do
 
 decodeNihongoConfig :: Text -> Either ConfigError NihongoConfig
 decodeNihongoConfig =
-  firstE (ConfigParseError . Text.pack . show) . KDL.decodeWith nihongoConfigDecoder
+  firstE (ConfigParseError . KDL.renderDecodeError) . KDL.decodeWith nihongoConfigDecoder
   where
     firstE f = either (Left . f) Right
 

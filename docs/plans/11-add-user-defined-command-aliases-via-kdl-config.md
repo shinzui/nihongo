@@ -107,11 +107,11 @@ current state of the work.
       `Test/Nihongo/Cli/AliasesSpec.hs` covering empty argv, dash bypass,
       built-in shadowing, single-pass expansion, and trailing-arg append.
       (2026-05-06)
-- [ ] Milestone 3 — Wire alias expansion into `Nihongo.Cli.runCli`. Replace
+- [x] Milestone 3 — Wire alias expansion into `Nihongo.Cli.runCli`. Replace
       the bare `execParser` call with the `getArgs → expandRawArgs →
       execParserPure → handleParseResult` sequence. Demonstrate
       `nihongo ks 漢` working end-to-end with a hand-written config under
-      `XDG_CONFIG_HOME=$(mktemp -d)`.
+      `XDG_CONFIG_HOME=$(mktemp -d)`. (2026-05-06)
 - [ ] Milestone 4 — Add the `nihongo alias list` subcommand
       (`Nihongo.Cli.Alias`), register it in `commandParser`, add it to
       `builtinCommands`, and add a `nihongo-cli/help/aliases.md` topic
@@ -149,6 +149,17 @@ during implementation. Provide concise evidence.
   build-depends" claim in **Interfaces and Dependencies** was wrong:
   while `text` and `optparse-applicative` were already present,
   `Data.Map.Strict` was new to the CLI package.
+- 2026-05-06 (Milestone 3): Step 4 of **Concrete Steps** specifies
+  rendering `KDL.DecodeError` via `show`, claiming "show is what mina
+  uses today". This is incorrect — `mina-core/src/Mina/Config/Load.hs`
+  uses `KDL.renderDecodeError`. The smoke test confirmed the `show`
+  output is genuinely poor (it dumps the `DecodeError` record literal:
+  `DecodeError {filepath = Nothing, errors = [([],DecodeError_ParseError
+  "...")]}`). Switched to `KDL.renderDecodeError`, which the plan
+  itself authorised: "If the rendered output reads poorly we can swap
+  in a custom renderer later." Output is now a clean parser
+  diagnostic with line/column. No new dependency required;
+  `KDL.renderDecodeError` is already in `kdl-hs`.
 
 
 ## Decision Log
