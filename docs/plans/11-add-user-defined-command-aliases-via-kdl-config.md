@@ -102,10 +102,11 @@ current state of the work.
       modules with just the alias-decoding shape; add a one-test sanity check
       that `decodeWith aliasesSectionDecoder "aliases { tw \"kanji show\" }"`
       yields the expected `Map`. (2026-05-06)
-- [ ] Milestone 2 — Add the pure `Nihongo.Cli.Aliases` module
+- [x] Milestone 2 — Add the pure `Nihongo.Cli.Aliases` module
       (`expandAlias` + `builtinCommands`). Add a unit-test module
       `Test/Nihongo/Cli/AliasesSpec.hs` covering empty argv, dash bypass,
       built-in shadowing, single-pass expansion, and trailing-arg append.
+      (2026-05-06)
 - [ ] Milestone 3 — Wire alias expansion into `Nihongo.Cli.runCli`. Replace
       the bare `execParser` call with the `getArgs → expandRawArgs →
       execParserPure → handleParseResult` sequence. Demonstrate
@@ -142,6 +143,12 @@ during implementation. Provide concise evidence.
   because `Test.Nihongo.Config.LoadSpec` imports `Data.Map.Strict`. The
   plan's Step 2 only mentioned cabal additions for the library stanza
   and missed this test-suite dependency.
+- 2026-05-06 (Milestone 2): `nihongo-cli/nihongo-cli.cabal`'s library
+  stanza was missing `containers` (and so was the test stanza). Added
+  `containers ^>=0.7` to both. The plan's "no new top-level
+  build-depends" claim in **Interfaces and Dependencies** was wrong:
+  while `text` and `optparse-applicative` were already present,
+  `Data.Map.Strict` was new to the CLI package.
 
 
 ## Decision Log
