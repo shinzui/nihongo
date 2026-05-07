@@ -81,3 +81,22 @@ executable nihongo
   build-depends:
     base >=4.20 && <5,
     nihongo-cli,
+
+test-suite nihongo-cli-test
+  import: common-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Main.hs
+  other-modules:
+    Test.Nihongo.Cli.CompletionsSpec
+
+  build-depends:
+    base >=4.20 && <5,
+    hspec ^>=2.11,
+    nihongo-cli,
+    text ^>=2.1,
+
+  ghc-options:
+    -threaded
+    -rtsopts
+    -with-rtsopts=-N

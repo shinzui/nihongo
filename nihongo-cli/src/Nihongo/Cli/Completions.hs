@@ -8,12 +8,13 @@
 module Nihongo.Cli.Completions
   ( CompletionsShell (..),
     completionsCommandParser,
+    completionScript,
     runCompletionsCommand,
   )
 where
 
 import Data.Text.IO qualified as TIO
-import Nihongo.Prelude ()
+import Nihongo.Prelude
 import Options.Applicative
 
 data CompletionsShell = Bash | Zsh | Fish
@@ -31,84 +32,86 @@ completionsCommandParser =
     parseShell _ = Nothing
 
 runCompletionsCommand :: CompletionsShell -> IO ()
-runCompletionsCommand sh =
-  let scriptText = case sh of
-        Bash ->
-          """
-          _nihongo_completions() {
-              local CMDLINE
-              local IFS=$'\\n'
-              CMDLINE=(--bash-completion-index $COMP_CWORD)
+runCompletionsCommand = TIO.putStr . completionScript
 
-              for arg in ${COMP_WORDS[@]}; do
-                  CMDLINE=(${CMDLINE[@]} --bash-completion-word "$arg")
-              done
+completionScript :: CompletionsShell -> Text
+completionScript sh =
+  case sh of
+    Bash ->
+      """
+      _nihongo_completions() {
+          local CMDLINE
+          local IFS=$'\\n'
+          CMDLINE=(--bash-completion-index $COMP_CWORD)
 
-              COMPREPLY=( $(nihongo "${CMDLINE[@]}" 2>/dev/null) )
-          }
+          for arg in ${COMP_WORDS[@]}; do
+              CMDLINE=(${CMDLINE[@]} --bash-completion-word "$arg")
+          done
 
-          complete -o filenames -F _nihongo_completions nihongo
-          """
-        Zsh ->
-          """
-          #compdef nihongo
+          COMPREPLY=( $(nihongo "${CMDLINE[@]}" 2>/dev/null) )
+      }
 
-          _nihongo() {
-              local -a completions
-              local CMDLINE
-              local IFS=$'\\n'
+      complete -o filenames -F _nihongo_completions nihongo
+      """
+    Zsh ->
+      """
+      #compdef nihongo
 
-              CMDLINE=(--bash-completion-enriched --bash-completion-index $((CURRENT - 1)))
+      _nihongo() {
+          local -a completions
+          local CMDLINE
+          local IFS=$'\\n'
 
-              for arg in ${words[@]}; do
-                  CMDLINE=(${CMDLINE[@]} --bash-completion-word "$arg")
-              done
+          CMDLINE=(--bash-completion-enriched --bash-completion-index $((CURRENT - 1)))
 
-              local line
-              for line in $(nihongo "${CMDLINE[@]}" 2>/dev/null); do
-                  local word=${line%%$'\\t'*}
-                  local desc=${line#*$'\\t'}
-                  if [[ "$word" != "$desc" ]]; then
-                      completions+=("${word//:/\\\\:}:${desc}")
-                  else
-                      completions+=("$word")
-                  fi
-              done
+          for arg in ${words[@]}; do
+              CMDLINE=(${CMDLINE[@]} --bash-completion-word "$arg")
+          done
 
-              if [[ ${#completions[@]} -gt 0 ]]; then
-                  _describe 'nihongo' completions
+          local line
+          for line in $(nihongo "${CMDLINE[@]}" 2>/dev/null); do
+              local word=${line%%$'\\t'*}
+              local desc=${line#*$'\\t'}
+              if [[ "$word" != "$desc" ]]; then
+                  completions+=("${word//:/\\\\:}:${desc}")
+              else
+                  completions+=("$word")
               fi
-          }
+          done
 
-          _nihongo
-          """
-        Fish ->
-          """
-          # Disable file completion by default
-          complete -c nihongo -f
+          if [[ ${#completions[@]} -gt 0 ]]; then
+              _describe 'nihongo' completions
+          fi
+      }
 
-          function __nihongo_complete
-              set -l tokens (commandline -cop)
-              set -l current (commandline -ct)
-              set -l index (count $tokens)
+      _nihongo
+      """
+    Fish ->
+      """
+      # Disable file completion by default
+      complete -c nihongo -f
 
-              set -l args --bash-completion-enriched --bash-completion-index $index
-              for token in $tokens
-                  set args $args --bash-completion-word $token
-              end
-              set args $args --bash-completion-word "$current"
+      function __nihongo_complete
+          set -l tokens (commandline -cop)
+          set -l current (commandline -ct)
+          set -l index (count $tokens)
 
-              for line in (nihongo $args 2>/dev/null)
-                  # Split on tab: word<TAB>description
-                  set -l parts (string split \\t -- $line)
-                  if test (count $parts) -ge 2
-                      printf '%s\\t%s\\n' $parts[1] $parts[2]
-                  else
-                      echo $line
-                  end
+          set -l args --bash-completion-enriched --bash-completion-index $index
+          for token in $tokens
+              set args $args --bash-completion-word $token
+          end
+          set args $args --bash-completion-word "$current"
+
+          for line in (nihongo $args 2>/dev/null)
+              # Split on tab: word<TAB>description
+              set -l parts (string split \\t -- $line)
+              if test (count $parts) -ge 2
+                  printf '%s\\t%s\\n' $parts[1] $parts[2]
+              else
+                  echo $line
               end
           end
+      end
 
-          complete -c nihongo -a '(__nihongo_complete)'
-          """
-   in TIO.putStr scriptText
+      complete -c nihongo -a '(__nihongo_complete)'
+      """
