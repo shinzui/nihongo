@@ -31,8 +31,7 @@ completionsCommandParser =
     parseShell _ = Nothing
 
 runCompletionsCommand :: CompletionsShell -> IO ()
-runCompletionsCommand sh = do
-  let progName = "nihongo"
+runCompletionsCommand sh =
   let scriptText = case sh of
         Bash ->
           """
@@ -84,13 +83,32 @@ runCompletionsCommand sh = do
           _nihongo
           """
         Fish ->
-          "function _nihongo_completion\n"
-            <> "  set -l cmd (commandline -opc) (commandline -ct)\n"
-            <> "  "
-            <> progName
-            <> " --bash-completion-index (count $cmd) --bash-completion-word $cmd\n"
-            <> "end\n"
-            <> "complete -c "
-            <> progName
-            <> " -f -a '(_nihongo_completion)'\n"
-  TIO.putStr scriptText
+          """
+          # Disable file completion by default
+          complete -c nihongo -f
+
+          function __nihongo_complete
+              set -l tokens (commandline -cop)
+              set -l current (commandline -ct)
+              set -l index (count $tokens)
+
+              set -l args --bash-completion-enriched --bash-completion-index $index
+              for token in $tokens
+                  set args $args --bash-completion-word $token
+              end
+              set args $args --bash-completion-word "$current"
+
+              for line in (nihongo $args 2>/dev/null)
+                  # Split on tab: word<TAB>description
+                  set -l parts (string split \\t -- $line)
+                  if test (count $parts) -ge 2
+                      printf '%s\\t%s\\n' $parts[1] $parts[2]
+                  else
+                      echo $line
+                  end
+              end
+          end
+
+          complete -c nihongo -a '(__nihongo_complete)'
+          """
+   in TIO.putStr scriptText
