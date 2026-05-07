@@ -118,11 +118,12 @@ current state of the work.
       registered in `Nihongo.Cli.Help.helpTopics`. Extend the test module
       to cover `renderAliasTable` and assert the parser accepts every name in
       `builtinCommands`. (2026-05-06)
-- [ ] Milestone 5 — End-to-end smoke test in a real shell using a real
+- [x] Milestone 5 — End-to-end smoke test in a real shell using a real
       `~/.config/nihongo/config.kdl` (or an `XDG_CONFIG_HOME` override)
       following the script in **Validation and Acceptance**. Capture the
       transcript here and in **Surprises & Discoveries** if anything diverges.
-- [ ] Final commit and Outcomes & Retrospective entry.
+      (2026-05-06 — see Outcomes & Retrospective for transcript)
+- [x] Final commit and Outcomes & Retrospective entry. (2026-05-06)
 
 
 ## Surprises & Discoveries
@@ -247,7 +248,99 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at
 completion. Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+### 2026-05-06 — Implementation complete
+
+All five milestones landed against the original purpose. The acceptance
+goal — "drop a small KDL file at `$XDG_CONFIG_HOME/nihongo/config.kdl`
+and immediately use the short forms" — works end-to-end in both bash
+and zsh. `nihongo alias list` prints the resolved table; missing config
+is silent; malformed config errors only when the user actually
+references an alias.
+
+Final test totals: `nihongo-core-tests` 11 examples (8 stroke-order,
+3 KDL decoder), `nihongo-cli-test` 21 examples (3 completions, 9
+expander, 3 registry, 4 renderAliasTable, 2 help-topic). 0 failures.
+
+Final smoke transcript (bash, against the cabal-built binary, with a
+fresh `XDG_CONFIG_HOME` under `mktemp -d`):
+
+    --- 1. nihongo alias list ---
+    h  = help
+    kp = kanji png
+    ks = kanji show
+
+    --- 2. nihongo help aliases ---  (head 8)
+    # Command Aliases
+
+    nihongo can expand short aliases for longer command invocations
+    before parsing. Aliases live in:
+        $XDG_CONFIG_HOME/nihongo/config.kdl
+        # macOS / Linux default: ~/.config/nihongo/config.kdl
+
+    --- 3. ks 漢 == kanji show 漢 ---
+    [ok] ks 漢 == kanji show 漢
+
+    --- 4. kp 漢 == kanji png 漢 ---
+    [ok] kp 漢 == kanji png 漢
+
+    --- 5. h kanji-show == help kanji-show ---
+    [ok]
+
+    --- 6. built-in protection ---
+    [ok] alias 'kanji' shadow ignored
+
+    --- 7. broken config but --version still works ---
+    nihongo 0.1.0.0 (git: <hash>)   exit=0
+
+    --- 8. broken config, alias use surfaces error ---
+    nihongo: config error:
+      2:1:
+        |
+      2 | <empty line>
+        | ^
+      unexpected end of input
+      expecting '}', string, or type annotation
+    bash exit=1   zsh exit=1
+
+    --- 9. no config file ---
+    No aliases configured.
+    nihongo 0.1.0.0 (git: <hash>)   exit=0
+
+### Gaps and follow-ups
+
+  * `kdl-hs` is locally pinned via `nix/haskell-overlay.nix` because
+    nixpkgs ships 0.2.1 and the shared `haskell-nix` registry has not
+    adopted 1.0.x yet. Once it does, the local override can drop.
+  * No `alias add` / `alias remove` subcommands — KDL writing is out
+    of scope for this iteration. Users edit `config.kdl` directly. If
+    we ever need write support, kdl-hs has a renderer that the CLI can
+    pick up.
+  * No global+project merge layer (à la mina's
+    `resolveAliasesSection`). The Decision Log records why this is
+    deferred. The schema is forward-compatible: a per-project
+    `nihongo.kdl` can be added later without breaking the existing
+    XDG-only loader.
+  * No alias-name validation (dash-prefixed names, empty-expansion
+    detection). The reference document recommends both; nihongo does
+    not yet have a `validateMinaConfig` analogue. Both are
+    representable as decoder failures or post-decode warnings; defer
+    to the next iteration if a user trips on them.
+
+### Lessons learned
+
+  * The plan's "no new top-level build-depends" claim was wrong twice
+    — both `containers` (CLI) and `nihongo-core` /
+    `optparse-applicative` (CLI test stanza) had to be added. When
+    porting a feature from one package to another, audit the test
+    stanza's imports separately from the library stanza.
+  * `OverloadedRecordDot` is a non-trivial assumption to carry across
+    projects. mina's `(.aliasMap)` syntax is concise but requires the
+    extension; nihongo's lens-label idiom (`r ^. #aliasMap`) is the
+    consistent local convention. Plain field selectors won out for
+    `resolveAliases` because there are no field-name collisions.
+  * `KDL.renderDecodeError` is the right default error renderer, not
+    `show`. The reference document's mina pointer was correct;
+    Step 4's prose was wrong about what mina does.
 
 
 ## Context and Orientation
