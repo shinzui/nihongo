@@ -8,6 +8,7 @@
 
   # Shared Haskell patch management
   inputs.haskell-nix.url = "github:shinzui/haskell-nix";
+  inputs.haskell-nix.inputs.nixpkgs.follows = "nixpkgs";
 
   # KanjiVG SVG corpus, baked into the binary's NIHONGO_KANJIVG_DIR default.
   inputs.kanjivg-src = {
