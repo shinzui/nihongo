@@ -1,0 +1,6 @@
+rei {
+  create {
+    default-parent intention_01kqxhfvpae3xv0dr9bnsxfdxs
+    title-prefix 日本語
+  }
+}
