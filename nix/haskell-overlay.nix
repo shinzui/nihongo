@@ -3,7 +3,7 @@
 , kanjivg-src
 }:
 let
-  inherit (pkgs.haskell.lib.compose) doJailbreak dontCheck;
+  inherit (pkgs.haskell.lib.compose) doJailbreak dontCheck dontHaddock;
 in
 final: prev: {
   # kdl-hs 1.0.1 is not yet in nixpkgs (which ships 0.2.1). Fetch from Hackage
@@ -15,7 +15,17 @@ final: prev: {
     })
     { }));
 
-  nihongo-core = doJailbreak (final.callCabal2nix "nihongo-core" ../nihongo-core { });
+  # `dontHaddock` below: nihongo ships a CLI, not a library anyone reads Haddock
+  # for, and these are exactly the derivations that rebuild on every `nix build`
+  # here and on every `darwin-rebuild` in mori://shinzui/dotfiles.nix. nixpkgs'
+  # builder defaults `doHaddock` to true, which adds a `doc` output plus a
+  # Haddock pass over the package and its dependencies' interfaces — pure
+  # repeated cost. Scoped to these packages rather than the whole scope (which
+  # is what `disableHaddock = true` on mori://shinzui/haskell-nix's
+  # `mkChannelExtension` would do) so the dependency closure keeps its hashes
+  # instead of needing a one-time full rebuild.
+
+  nihongo-core = dontHaddock (doJailbreak (final.callCabal2nix "nihongo-core" ../nihongo-core { }));
 
   nihongo-cli = pkgs.haskell.lib.compose.overrideCabal
     (drv: {
@@ -32,5 +42,5 @@ final: prev: {
           --set-default NIHONGO_KANJIVG_DIR ${kanjivg-src}
       '';
     })
-    (doJailbreak (final.callCabal2nix "nihongo-cli" ../nihongo-cli { }));
+    (dontHaddock (doJailbreak (final.callCabal2nix "nihongo-cli" ../nihongo-cli { })));
 }
