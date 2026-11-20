@@ -1,5 +1,5 @@
 -- | Terminal-side image rendering for nihongo. Capability detection
---   identifies Kitty-graphics-capable terminals (Kitty, WezTerm, Ghostty)
+--   identifies Kitty-graphics-capable terminals (Kitty, WezTerm, Ghostty, Rex)
 --   directly via env vars, and via @tmux show-environment@ when running
 --   inside tmux. Subsequent milestones add the Kitty emitter, the SVG →
 --   PNG rasterisation step, and the high-level @displaySvg@ orchestrator.
@@ -55,6 +55,8 @@ detectImageCapability = do
           || mTerm == Just "xterm-kitty"
           || mProg == Just "WezTerm"
           || mProg == Just "ghostty"
+          || mProg == Just "rex"
+          || mTerm == Just "xterm-rex"
   if directHit
     then pure KittyGraphics
     else case mTmux of
@@ -62,7 +64,7 @@ detectImageCapability = do
       Just _ -> do
         outerProg <- tmuxShowEnv "TERM_PROGRAM"
         pure $
-          if outerProg `elem` [Just "WezTerm", Just "ghostty", Just "kitty"]
+          if outerProg `elem` [Just "WezTerm", Just "ghostty", Just "kitty", Just "rex"]
             then KittyGraphics
             else NoImageSupport
 
