@@ -35,8 +35,10 @@ import "base" Data.List.NonEmpty as X (NonEmpty (..))
 import "base" Data.Maybe as X (fromMaybe, isJust, isNothing)
 import "base" Data.Proxy as X (Proxy (..))
 import "base" GHC.Generics as X (Generic)
+
 -- Enable #label syntax for Generic records.
 import "generic-lens" Data.Generics.Labels ()
+
 -- Re-export lens operators directly. Hide `argument` (the function-argument
 -- setter) so that `Options.Applicative.argument` is unambiguous in CLI parsers.
 import "lens" Control.Lens hiding (argument)
