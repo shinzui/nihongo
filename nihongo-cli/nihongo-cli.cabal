@@ -49,6 +49,7 @@ library
     Nihongo.Cli.Width
     Nihongo.Kanji.Png
     Nihongo.Pretty
+    Nihongo.Terminal.Geometry
     Nihongo.Terminal.Image
 
   autogen-modules: Paths_nihongo_cli
@@ -93,9 +94,11 @@ test-suite nihongo-cli-test
   other-modules:
     Test.Nihongo.Cli.AliasesSpec
     Test.Nihongo.Cli.CompletionsSpec
+    Test.Nihongo.Terminal.ImageSpec
 
   build-depends:
     base >=4.20 && <5,
+    bytestring ^>=0.12,
     containers ^>=0.7,
     hspec ^>=2.11,
     nihongo-cli,

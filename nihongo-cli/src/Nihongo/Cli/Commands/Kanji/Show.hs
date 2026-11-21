@@ -4,7 +4,8 @@
 --   Japanese character or word from a positional argument or from stdin
 --   (via "Nihongo.Cli.Stdin.getTextInput"), prints a numbered narrated
 --   stroke order per character, and (in a Kitty-graphics-capable terminal)
---   follows each section with an inline image of the kanji.
+--   shows an inline image of the kanji beside its stroke list. With
+--   @--format image@, a word's images are drawn side by side.
 module Nihongo.Cli.Commands.Kanji.Show
   ( ShowCommand (..),
     OutputFormat (..),
@@ -130,9 +131,16 @@ runShow (ShowCommand inputArg fmt noImages dirOverride) = do
     Nothing -> die "could not find the KanjiVG corpus; see `nihongo help kanji-show`"
     Just r -> pure r
   cap <- Image.detectImageCapabilityWithOverride noImages
-  let numbered = NE.zip (1 NE.:| [2 ..]) kanjis
-  results <- traverse (renderOne fmt cap root) (NE.toList numbered)
-  unless (or results) exitFailure
+  case fmt of
+    FormatImage -> do
+      found <- traverse (lookupStrokes root) (NE.toList kanjis)
+      let images = [(Text.singleton (unKanji k), svg) | Just (k, _, svg) <- found]
+      Image.displaySvgRow cap images
+      when (null images) exitFailure
+    _ -> do
+      let numbered = NE.zip (1 NE.:| [2 ..]) kanjis
+      results <- traverse (renderOne fmt cap root) (NE.toList numbered)
+      unless (or results) exitFailure
 
 -- | Render one character's section. Returns 'True' on success, 'False'
 --   when the SVG was missing or failed to parse (in which case a
@@ -146,11 +154,23 @@ renderOne ::
   IO Bool
 renderOne fmt cap root (idx, kanji) = do
   when (idx > 1) (TIO.putStrLn "")
+  found <- lookupStrokes root kanji
+  case found of
+    Nothing -> pure False
+    Just (_, info, svg) -> do
+      printOutput fmt cap kanji info svg
+      pure True
+
+-- | Find and parse a character's KanjiVG entry. When it is missing or
+--   fails to parse, print the missing-entry header (and a warning for a
+--   parse failure) and return 'Nothing'.
+lookupStrokes :: KanjiVgRoot -> Kanji -> IO (Maybe (Kanji, StrokeOrderInfo, FilePath))
+lookupStrokes root kanji = do
   mPath <- findStrokeSvg root kanji
   case mPath of
     Nothing -> do
       renderMissingHeader kanji
-      pure False
+      pure Nothing
     Just svg -> do
       result <- parseStrokeOrderFile svg
       case result of
@@ -163,10 +183,8 @@ renderOne fmt cap root (idx, kanji) = do
                 <> Text.pack (show (err :: ParseError))
             )
           renderMissingHeader kanji
-          pure False
-        Right info -> do
-          printOutput fmt cap kanji info svg
-          pure True
+          pure Nothing
+        Right info -> pure (Just (kanji, info, svg))
 
 renderMissingHeader :: Kanji -> IO ()
 renderMissingHeader kanji = do
@@ -174,17 +192,21 @@ renderMissingHeader kanji = do
   TIO.putStrLn "(no KanjiVG entry)"
 
 printOutput :: OutputFormat -> Image.ImageCapability -> Kanji -> StrokeOrderInfo -> FilePath -> IO ()
-printOutput fmt cap kanji info svgPath = do
-  case fmt of
-    FormatImage -> pure ()
-    _ -> do
+printOutput fmt cap kanji info svgPath = case fmt of
+  FormatImage -> Image.displaySvgRow cap [(label, svgPath)]
+  FormatText -> do
+    printHeader
+    mapM_ TIO.putStrLn strokeLines
+    TIO.putStrLn ""
+  FormatBoth -> do
+    printHeader
+    Image.displaySvgBeside cap label svgPath strokeLines
+  where
+    label = Text.singleton (unKanji kanji)
+    strokeLines = map renderStrokeLine (strokes info)
+    printHeader = do
       TIO.putStrLn (header kanji info)
       TIO.putStrLn ""
-      mapM_ (TIO.putStrLn . renderStrokeLine) (strokes info)
-      TIO.putStrLn ""
-  case fmt of
-    FormatText -> pure ()
-    _ -> Image.displaySvg cap (Text.singleton (unKanji kanji)) svgPath
 
 header :: Kanji -> StrokeOrderInfo -> Text
 header k info =
