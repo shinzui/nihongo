@@ -88,6 +88,7 @@
       imports =
         [
           ./nix/haskell.nix
+          ./nix/haskell-cli-app.nix
           ./nix/treefmt.nix
           ./nix/pre-commit.nix
         ]

@@ -25,7 +25,13 @@ final: prev: {
   # `mkChannelExtension` would do) so the dependency closure keeps its hashes
   # instead of needing a one-time full rebuild.
 
-  nihongo-core = dontHaddock (doJailbreak (final.callCabal2nix "nihongo-core" ../nihongo-core { }));
+  #
+  # nihongo-core / nihongo-cli themselves are defined by the managed
+  # ./haskell-cli-app.nix overlay, which runs before this one; these entries
+  # only layer nihongo-specific build settings on top (`prev.*`). If the managed
+  # overlay ever stops defining them, evaluation fails loudly here.
+
+  nihongo-core = dontHaddock (doJailbreak prev.nihongo-core);
 
   nihongo-cli = pkgs.haskell.lib.compose.overrideCabal
     (drv: {
@@ -42,5 +48,5 @@ final: prev: {
           --set-default NIHONGO_KANJIVG_DIR ${kanjivg-src}
       '';
     })
-    (dontHaddock (doJailbreak (final.callCabal2nix "nihongo-cli" ../nihongo-cli { })));
+    (dontHaddock (doJailbreak prev.nihongo-cli));
 }

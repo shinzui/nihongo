@@ -5,11 +5,14 @@ synopsis: Command-line interface for nihongo
 description:
   A terminal-first Japanese learning companion for studying kanji, vocabulary, readings, stroke order, and grammar directly from the command line, designed for fast, keyboard-driven workflows and daily practice.
 
+category: Development
 license: BSD-3-Clause
+license-file: LICENSE
 author: Nadeem Bitar
 maintainer: nadeem@gmail.com
 copyright: (c) 2026 Nadeem Bitar
 build-type: Simple
+extra-doc-files: CHANGELOG.md
 
 common common-options
   ghc-options:
@@ -23,6 +26,7 @@ common common-options
     -Wmissing-export-lists
     -Wpartial-fields
     -Wmissing-deriving-strategies
+    -Wunused-packages
 
   default-language: GHC2024
   default-extensions:
@@ -63,15 +67,12 @@ library
     directory ^>=1.3,
     file-embed ^>=0.0.16,
     filepath ^>=1.4,
-    generic-lens,
     githash ^>=0.1,
-    lens ^>=5.3,
     nihongo-core,
     optparse-applicative >=0.19,
     process ^>=1.6,
     terminal-size ^>=0.3,
     text ^>=2.1,
-    unix ^>=2.8,
 
 executable nihongo
   import: common-options
