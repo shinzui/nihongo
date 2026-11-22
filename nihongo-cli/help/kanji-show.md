@@ -22,6 +22,11 @@ separated by a blank line.
 Use `--format text` to skip the image entirely, `--format image` to skip the
 text, or `--format both` (the default) to print both.
 
+`--image-theme dark` draws light strokes and numbers on a transparent
+background. The default, `--image-theme light`, uses the original KanjiVG
+colors. You can include the option in a configured alias, for example
+`ks "kanji show --format image --image-theme dark"`.
+
 Use `--no-images` to suppress the inline image even when the terminal supports
 it. Use `--kanjivg-dir PATH` to point at an alternate KanjiVG checkout (the
 default is the git submodule at `data/kanjivg/`).

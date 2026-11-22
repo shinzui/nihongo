@@ -5,13 +5,16 @@
 --   PNG rasterisation step, and the high-level @displaySvg@ orchestrator.
 module Nihongo.Terminal.Image
   ( ImageCapability (..),
+    ImageTheme (..),
     detectImageCapability,
     detectImageCapabilityWithOverride,
     displayImage,
     ensurePng,
     displaySvg,
     displaySvgBeside,
+    displaySvgBesideWithTheme,
     displaySvgRow,
+    displaySvgRowWithTheme,
     SideLayout (..),
     sideLayout,
     RowLayout (..),
@@ -21,7 +24,7 @@ module Nihongo.Terminal.Image
   )
 where
 
-import Control.Exception (IOException, try)
+import Control.Exception (IOException, bracket, finally, try)
 import Control.Monad (replicateM_)
 import Crypto.Hash.SHA256 qualified as SHA256
 import Data.ByteString (ByteString)
@@ -35,17 +38,22 @@ import Data.Traversable (for)
 import Nihongo.Prelude
 import Nihongo.Pretty qualified as Pretty
 import Nihongo.Terminal.Geometry (TerminalGeometry (..), queryGeometry)
-import System.Directory (createDirectoryIfMissing, doesFileExist, getHomeDirectory)
+import System.Directory (createDirectoryIfMissing, doesFileExist, getHomeDirectory, removeFile, renameFile)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath qualified as FP
 import System.IO qualified as IO
+import System.IO.Error (catchIOError, isDoesNotExistError)
 import System.Process (readProcess, readProcessWithExitCode)
 import Text.Printf (printf)
 
 data ImageCapability
   = KittyGraphics
   | NoImageSupport
+  deriving stock (Eq, Show)
+
+-- | The terminal background the kanji image is rendered for.
+data ImageTheme = LightImageTheme | DarkImageTheme
   deriving stock (Eq, Show)
 
 -- | Decide whether the current terminal supports Kitty graphics. The
@@ -216,43 +224,65 @@ rasteriseWidthPx = 384
 
 -- | Given an SVG file path, return the path to a cached PNG of it. If
 --   the PNG does not exist yet (cache miss), rasterise it via
---   @rsvg-convert@. The cache key is the SHA-256 of @cacheVersion@
---   prepended to the SVG file contents — so changing @cacheVersion@
---   invalidates every entry in lockstep with the rasterisation params.
+--   @rsvg-convert@ using the original SVG colors.
 ensurePng :: FilePath -> IO (Either Text FilePath)
-ensurePng svgPath = do
+ensurePng = ensurePngWithTheme LightImageTheme
+
+ensurePngWithTheme :: ImageTheme -> FilePath -> IO (Either Text FilePath)
+ensurePngWithTheme theme svgPath = do
   svgBytes <- BS.readFile svgPath
-  let digest = SHA256.hash (cacheVersion <> svgBytes)
+  let stylesheet = imageStylesheet theme
+      styleKey = maybe "" (\css -> "\NULstylesheet\NUL" <> SHA256.hash css) stylesheet
+      digest = SHA256.hash (cacheVersion <> styleKey <> svgBytes)
       hex = Text.pack (concatMap (printf "%02x") (BS.unpack digest))
   dir <- cacheDir
   let pngPath = dir FP.</> Text.unpack hex FP.<.> "png"
   cached <- doesFileExist pngPath
   if cached
     then pure (Right pngPath)
-    else rasterise svgPath pngPath
+    else rasterise stylesheet svgPath pngPath
 
-rasterise :: FilePath -> FilePath -> IO (Either Text FilePath)
-rasterise svgPath pngPath = do
-  result <-
-    try
-      ( readProcessWithExitCode
-          "rsvg-convert"
-          [ "--format=png",
-            "--width",
-            show rasteriseWidthPx,
-            "--keep-aspect-ratio",
-            "--output",
-            pngPath,
-            svgPath
-          ]
-          ""
-      ) ::
-      IO (Either IOException (ExitCode, String, String))
+imageStylesheet :: ImageTheme -> Maybe ByteString
+imageStylesheet LightImageTheme = Nothing
+imageStylesheet DarkImageTheme =
+  Just
+    """
+    [id^="kvg:StrokePaths_"] { stroke: #e6e6e6 !important; }
+    [id^="kvg:StrokeNumbers_"] { fill: #bdbdbd !important; }
+    """
+
+rasterise :: Maybe ByteString -> FilePath -> FilePath -> IO (Either Text FilePath)
+rasterise stylesheet svgPath pngPath = do
+  result <- try render :: IO (Either IOException (Either Text FilePath))
   case result of
-    Left e -> pure (Left ("rsvg-convert not found: " <> Text.pack (show e)))
-    Right (ExitSuccess, _, _) -> pure (Right pngPath)
-    Right (ExitFailure n, _, e) ->
-      pure (Left ("rsvg-convert exit " <> Text.pack (show n) <> ": " <> Text.pack e))
+    Left e -> pure (Left ("could not rasterise SVG: " <> Text.pack (show e)))
+    Right rendered -> pure rendered
+  where
+    dir = FP.takeDirectory pngPath
+
+    render = case stylesheet of
+      Nothing -> convert []
+      Just css -> withTemporaryFile dir "theme.css" $ \(cssPath, handle) -> do
+        BS.hPut handle css
+        IO.hClose handle
+        convert ["--stylesheet", cssPath]
+
+    convert styleArgs = withTemporaryFile dir "stroke.png" $ \(output, handle) -> do
+      IO.hClose handle
+      let args = ["--format=png", "--width", show rasteriseWidthPx, "--keep-aspect-ratio"]
+      (exitCode, _, err) <- readProcessWithExitCode "rsvg-convert" (args <> styleArgs <> ["--output", output, svgPath]) ""
+      case exitCode of
+        ExitSuccess -> do
+          -- Publish the PNG only once it is ready for concurrent readers.
+          renameFile output pngPath
+          pure (Right pngPath)
+        ExitFailure n -> pure (Left ("rsvg-convert exit " <> Text.pack (show n) <> ": " <> Text.pack err))
+
+withTemporaryFile :: FilePath -> String -> ((FilePath, IO.Handle) -> IO a) -> IO a
+withTemporaryFile dir template = bracket (IO.openBinaryTempFile dir template) cleanup
+  where
+    cleanup (path, handle) = IO.hClose handle `finally` (removeFile path `catchIOError` ignoreMissing)
+    ignoreMissing err = unless (isDoesNotExistError err) (ioError err)
 
 -- | High-level entry point. Given a capability decision, a label (used
 --   for the fallback placeholder), and an SVG file path, do the right
@@ -261,10 +291,13 @@ rasterise svgPath pngPath = do
 --   @rsvg-convert@ missing on @PATH@) print a stderr warning and fall
 --   back to the placeholder rather than aborting the program.
 displaySvg :: ImageCapability -> Text -> FilePath -> IO ()
-displaySvg NoImageSupport label _ =
+displaySvg = displaySvgWithTheme LightImageTheme
+
+displaySvgWithTheme :: ImageTheme -> ImageCapability -> Text -> FilePath -> IO ()
+displaySvgWithTheme _ NoImageSupport label _ =
   TIO.putStrLn (Pretty.dim ("[Image: " <> label <> "]"))
-displaySvg KittyGraphics label svgPath = do
-  ensured <- ensurePng svgPath
+displaySvgWithTheme theme KittyGraphics label svgPath = do
+  ensured <- ensurePngWithTheme theme svgPath
   case ensured of
     Left err -> do
       TIO.hPutStrLn IO.stderr ("warning: " <> err)
@@ -279,12 +312,15 @@ displaySvg KittyGraphics label svgPath = do
 --   cursor need not match ours), a terminal that does not report its
 --   pixel size, or one too small for both columns.
 displaySvgBeside :: ImageCapability -> Text -> FilePath -> [Text] -> IO ()
-displaySvgBeside cap label svgPath textLines = do
+displaySvgBeside = displaySvgBesideWithTheme LightImageTheme
+
+displaySvgBesideWithTheme :: ImageTheme -> ImageCapability -> Text -> FilePath -> [Text] -> IO ()
+displaySvgBesideWithTheme theme cap label svgPath textLines = do
   mLayout <- (>>= \g -> sideLayout g (length textLines)) <$> placementGeometry cap
   case mLayout of
     Nothing -> stackedLayout
     Just layout -> do
-      ensured <- ensurePng svgPath
+      ensured <- ensurePngWithTheme theme svgPath
       case ensured of
         Left err -> do
           TIO.hPutStrLn IO.stderr ("warning: " <> err)
@@ -296,7 +332,7 @@ displaySvgBeside cap label svgPath textLines = do
     stackedLayout = do
       mapM_ TIO.putStrLn textLines
       TIO.putStrLn ""
-      displaySvg cap label svgPath
+      displaySvgWithTheme theme cap label svgPath
 
 -- | Show a word's images in a row, left to right, wrapping onto further
 --   rows when the terminal is too narrow for all of them. Falls back to
@@ -304,14 +340,17 @@ displaySvgBeside cap label svgPath textLines = do
 --   'displaySvgBeside'. An image that cannot be rasterised prints its
 --   warning and placeholder before the row.
 displaySvgRow :: ImageCapability -> [(Text, FilePath)] -> IO ()
-displaySvgRow _ [] = pure ()
-displaySvgRow cap images = do
+displaySvgRow = displaySvgRowWithTheme LightImageTheme
+
+displaySvgRowWithTheme :: ImageTheme -> ImageCapability -> [(Text, FilePath)] -> IO ()
+displaySvgRowWithTheme _ _ [] = pure ()
+displaySvgRowWithTheme theme cap images = do
   mLayout <- (>>= \g -> rowLayout g (length images)) <$> placementGeometry cap
   case mLayout of
     Nothing -> stackedLayout
     Just layout -> do
       pngs <- fmap concat . for images $ \(label, svgPath) -> do
-        ensured <- ensurePng svgPath
+        ensured <- ensurePngWithTheme theme svgPath
         case ensured of
           Left err -> do
             TIO.hPutStrLn IO.stderr ("warning: " <> err)
@@ -323,7 +362,7 @@ displaySvgRow cap images = do
     stackedLayout =
       for_ (zip [0 :: Int ..] images) $ \(i, (label, svgPath)) -> do
         when (i > 0) (TIO.putStrLn "")
-        displaySvg cap label svgPath
+        displaySvgWithTheme theme cap label svgPath
 
 -- | The terminal's geometry when images can be placed beside other
 --   cells: Kitty graphics, outside tmux (where the outer terminal's
